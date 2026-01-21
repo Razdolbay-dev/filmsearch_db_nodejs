@@ -1,0 +1,185 @@
+Список жанров Фильмы
+```js
+const url = 'https://api.themoviedb.org/3/genre/movie/list?language=ru';
+const options = {
+  method: 'GET',
+  headers: {
+    accept: 'application/json',
+    Authorization: 'Bearer '
+  }
+};
+
+fetch(url, options)
+  .then(res => res.json())
+  .then(json => console.log(json))
+  .catch(err => console.error(err));
+```
+```json
+{
+  "genres": [
+    {
+      "id": 28,
+      "name": "боевик"
+    },
+    {
+      "id": 12,
+      "name": "приключения"
+    },
+    {
+      "id": 16,
+      "name": "мультфильм"
+    },
+    {
+      "id": 35,
+      "name": "комедия"
+    },
+    {
+      "id": 80,
+      "name": "криминал"
+    },
+    {
+      "id": 99,
+      "name": "документальный"
+    },
+    {
+      "id": 18,
+      "name": "драма"
+    },
+    {
+      "id": 10751,
+      "name": "семейный"
+    },
+    {
+      "id": 14,
+      "name": "фэнтези"
+    },
+    {
+      "id": 36,
+      "name": "история"
+    },
+    {
+      "id": 27,
+      "name": "ужасы"
+    },
+    {
+      "id": 10402,
+      "name": "музыка"
+    },
+    {
+      "id": 9648,
+      "name": "детектив"
+    },
+    {
+      "id": 10749,
+      "name": "мелодрама"
+    },
+    {
+      "id": 878,
+      "name": "фантастика"
+    },
+    {
+      "id": 10770,
+      "name": "телевизионный фильм"
+    },
+    {
+      "id": 53,
+      "name": "триллер"
+    },
+    {
+      "id": 10752,
+      "name": "военный"
+    },
+    {
+      "id": 37,
+      "name": "вестерн"
+    }
+  ]
+}
+```
+
+Список жанров ТВ
+```js
+const url = 'https://api.themoviedb.org/3/genre/tv/list?language=ru';
+const options = {
+  method: 'GET',
+  headers: {
+    accept: 'application/json',
+    Authorization: 'Bearer '
+  }
+};
+
+fetch(url, options)
+  .then(res => res.json())
+  .then(json => console.log(json))
+  .catch(err => console.error(err));
+```
+```json
+{
+  "genres": [
+    {
+      "id": 10759,
+      "name": "Боевик и Приключения"
+    },
+    {
+      "id": 16,
+      "name": "мультфильм"
+    },
+    {
+      "id": 35,
+      "name": "комедия"
+    },
+    {
+      "id": 80,
+      "name": "криминал"
+    },
+    {
+      "id": 99,
+      "name": "документальный"
+    },
+    {
+      "id": 18,
+      "name": "драма"
+    },
+    {
+      "id": 10751,
+      "name": "семейный"
+    },
+    {
+      "id": 10762,
+      "name": "Детский"
+    },
+    {
+      "id": 9648,
+      "name": "детектив"
+    },
+    {
+      "id": 10763,
+      "name": "Новости"
+    },
+    {
+      "id": 10764,
+      "name": "Реалити-шоу"
+    },
+    {
+      "id": 10765,
+      "name": "НФ и Фэнтези"
+    },
+    {
+      "id": 10766,
+      "name": "Мыльная опера"
+    },
+    {
+      "id": 10767,
+      "name": "Ток-шоу"
+    },
+    {
+      "id": 10768,
+      "name": "Война и Политика"
+    },
+    {
+      "id": 37,
+      "name": "вестерн"
+    }
+  ]
+}
+```
