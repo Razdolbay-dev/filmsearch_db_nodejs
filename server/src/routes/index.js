@@ -1,7 +1,7 @@
 import express from "express";
 import exportsRoutes from "./exportsRoutes.js";
 import config from '../config/index.js';
-
+import tmdbMovieRoutes from "./movieRoutes.js";
 const router = express.Router();
 
 // Маршрут для проверки конфигурации (опционально)
@@ -24,5 +24,6 @@ router.get('/config/status', (req, res) => {
     });
 });
 router.use('/exports', exportsRoutes)
+router.use('/movies', tmdbMovieRoutes)
 
 export default router;

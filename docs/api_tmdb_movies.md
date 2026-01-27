@@ -107,7 +107,7 @@ fetch(url, options)
 Информация по актерам в фильме
 1. Запрос
 ```js
-const url = 'https://api.themoviedb.org/3/movie/550/credits?language=ru-RU';
+const url = 'https://api.themoviedb.org/3/movie/movie_id/credits?language=ru-RU';
 const options = {
   method: 'GET',
   headers: {

@@ -34,7 +34,8 @@ const config = {
         apiKey: process.env.TMDB_API_KEY || '',
         apiToken: process.env.TMDB_API_TOKEN || '',
         baseUrl: 'http://files.tmdb.org/p/exports',
-        userAgent: 'TMDB-Downloader/1.0'
+        userAgent: 'TMDB-Downloader/1.0',
+        movieAPIUrl: 'https://api.themoviedb.org/3/movie'
     },
 
     // Прокси настройки
