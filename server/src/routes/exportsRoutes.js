@@ -2,6 +2,8 @@ import tmdbExportLinks from '../controllers/exportsController.js'
 import { Router } from 'express';
 
 const router = Router();
+
+
 router.get('/all', tmdbExportLinks.getAllURLs);
 router.get('/movies', tmdbExportLinks.getURLMoviesFile);
 router.get('/tvSeries', tmdbExportLinks.getURLTvSeriesFile);

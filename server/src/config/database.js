@@ -1,8 +1,5 @@
 import mysql from 'mysql2/promise';
-import dotenv from 'dotenv';
 import config from '../config/index.js';
-
-dotenv.config();
 
 const dbConfig = {
     host: config.database.host,

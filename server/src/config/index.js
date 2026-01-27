@@ -19,7 +19,7 @@ const config = {
 
     // Настройки базы данных
     database: {
-        username: process.env.DB_USERNAME || 'root',
+        username: process.env.DB_USER|| 'root',
         password: process.env.DB_PASSWORD || '',
         host: process.env.DB_HOST || 'localhost',
         name: process.env.DB_NAME || 'mydatabase',
@@ -60,7 +60,7 @@ const config = {
 
     // Пути
     paths: {
-        downloads: join(__dirname, '../../downloads'),
+        downloads: join(__dirname, '../../tmdb_downloads'),
         logs: join(__dirname, '../../logs')
     },
 
