@@ -29,6 +29,20 @@ app.use('/', express.static(join(__dirname, '../frontend/dist')));
 app.use(cors());
 app.use(express.json());
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        service: 'TMDB API Proxy',
+        version: '1.0.0',
+        environment: config.app.env,
+        services: ['movies', 'series', 'info'],
+        proxy_enabled: config.proxy.enabled,
+        documentation: '/api/info'
+    });
+});
+
 app.use('/api', indexRoutes);
 
 app.use((req, res) => {
@@ -49,8 +63,6 @@ app.use((err, req, res, next) => {
 server.listen(PORT, HOST, () => {
     console.log(`
 🚀 Server started ${HOST}:${PORT}/api
-📊 Monitor: ${HOST}:${PORT}/monitor
-🔗 WebSocket: ws://${HOST}:${PORT}
 
 📦 Configuration:
    Database: ${config.database.username ? '✓ Configured' : '✗ Not configured'}

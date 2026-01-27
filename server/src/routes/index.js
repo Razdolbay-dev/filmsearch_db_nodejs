@@ -1,29 +1,36 @@
 import express from "express";
+
 import exportsRoutes from "./exportsRoutes.js";
-import config from '../config/index.js';
 import tmdbMovieRoutes from "./movieRoutes.js";
+import tmdbSeriesRoutes from "./seriesRoutes.js";
+import infoRoutes from "./infoRoutes.js";
+
 const router = express.Router();
 
-// Маршрут для проверки конфигурации (опционально)
-router.get('/config/status', (req, res) => {
+router.get('/', (req, res) => {
     res.json({
-        status: 'ok',
-        server: `${config.app.host}:${config.app.port}`,
-        database: {
-            connected: !!config.database.username,
-            host: config.database.host,
-            name: config.database.name
+        message: 'TMDB API Proxy Service',
+        version: '1.0.0',
+        documentation: '/api/info',
+        quick_links: {
+            health_check: '/health',
+            service_info: '/api/info/service',
+            movies_api: '/api/movies/550',
+            series_api: '/api/series/1399',
+            search_movies: '/api/movies/search?query=матрица',
+            search_series: '/api/series/search?query=во+все'
         },
-        tmdb: {
-            configured: !!config.tmdb.apiKey
-        },
-        proxy: {
-            enabled: config.proxy.enabled,
-            type: config.proxy.type
-        }
+        examples: [
+            'curl "http://localhost:5000/health"',
+            'curl "http://localhost:5000/api/movies/550"',
+            'curl "http://localhost:5000/api/series/1399"'
+        ],
+        timestamp: new Date().toISOString()
     });
 });
+// Маршрут для проверки конфигурации (опционально)
 router.use('/exports', exportsRoutes)
 router.use('/movies', tmdbMovieRoutes)
-
+router.use('/series', tmdbSeriesRoutes)
+router.use('/info', infoRoutes)
 export default router;
