@@ -35,7 +35,7 @@ class TMDBExportController {
             const filePath = `tmdb_downloads/${ds.extractFileNameFromUrl(links.collectionLink)}`
 
             await ds.downloadFile(links.collectionLink, 'tmdb_downloads')
-            await importData.importMovies(filePath, links.date)
+            await importData.importCollections(filePath, links.date)
 
             res.json({
                 success: true,
@@ -56,7 +56,7 @@ class TMDBExportController {
             const filePath = `tmdb_downloads/${ds.extractFileNameFromUrl(links.tvSeriesLink)}`
 
             await ds.downloadFile(links.tvSeriesLink, 'tmdb_downloads')
-            await importData.importMovies(filePath, links.date)
+            await importData.importTVSeries(filePath, links.date)
 
             res.json({
                 success: true,
