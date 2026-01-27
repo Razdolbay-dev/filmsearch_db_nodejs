@@ -2,7 +2,7 @@
 
 1.1. Создать базу данных
 ```sql
-CREATE DATABASE tmdb_content CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE media_from_tmdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 ```
 
@@ -14,7 +14,7 @@ CREATE USER 'user_media'@'127.0.0.1' IDENTIFIED BY '123321';
 
 1.3. Выдать права пользователям
 ```sql
-GRANT ALL PRIVILEGES ON tmdb_content.* TO 'user_media'@'127.0.0.1';
+GRANT ALL PRIVILEGES ON media_from_tmdb.* TO 'user_media'@'127.0.0.1';
 
 ```
 
