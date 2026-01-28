@@ -82,8 +82,8 @@ export class SeriesImportService {
             return {
                 success: true,
                 seriesId: seriesId,
-                title: seriesData.name,
-                message: `Сериал ${seriesData.name} успешно импортирован`
+                title: data.seriesInfo.name,
+                message: `Сериал ${data.seriesInfo.name} успешно импортирован`
             };
 
         } catch (error) {
