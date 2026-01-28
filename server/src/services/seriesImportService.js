@@ -83,7 +83,7 @@ export class SeriesImportService {
                 success: true,
                 seriesId: seriesId,
                 title: seriesData.name,
-                message: 'Фильм успешно импортирован'
+                message: `Сериал ${seriesData.name} успешно импортирован`
             };
 
         } catch (error) {
