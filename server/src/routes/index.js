@@ -1,6 +1,7 @@
 import express from "express";
 
 import exportsRoutes from "./exportsRoutes.js";
+import importRoutes from "./importRoutes.js";
 import tmdbMovieRoutes from "./movieRoutes.js";
 import tmdbSeriesRoutes from "./seriesRoutes.js";
 import infoRoutes from "./infoRoutes.js";
@@ -30,6 +31,7 @@ router.get('/', (req, res) => {
 });
 // Маршрут для проверки конфигурации (опционально)
 router.use('/exports', exportsRoutes)
+router.use('/imports', importRoutes)
 router.use('/movies', tmdbMovieRoutes)
 router.use('/series', tmdbSeriesRoutes)
 router.use('/info', infoRoutes)
