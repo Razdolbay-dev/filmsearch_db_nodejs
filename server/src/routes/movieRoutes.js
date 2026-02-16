@@ -18,9 +18,6 @@ router.get('/status', movieController.getApiStatus);
  */
 router.get('/proxy-info', movieController.getProxyInfo);
 
-
-
-
 /**
  * @route   GET /api/movies/search
  * @desc    Поиск фильмов по названию

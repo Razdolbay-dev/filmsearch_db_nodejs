@@ -1,4 +1,3 @@
-// В вашем основном файле
 import { SeriesImportService } from '../services/seriesImportService.js';
 
 const seriesImport = new SeriesImportService();
@@ -23,21 +22,3 @@ export class SeriesImportController {
         }
     }
 }
-
-
-
-
-/**
-// Импорт одного сериала
-try {
-    await seriesService.importSeriesById(76946);
-    console.log('Импорт завершен успешно');
-} catch (error) {
-    console.error('Ошибка импорта:', error);
-}
-
-// Импорт нескольких сериалов
-const seriesIds = [76946, 12345, 67890];
-const results = await seriesService.importMultipleSeries(seriesIds);
-console.log(`Успешно: ${results.successful.length}, Ошибки: ${results.failed.length}`);
- */

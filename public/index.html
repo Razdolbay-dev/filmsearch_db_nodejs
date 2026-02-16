@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест синхронизации TMDB</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #1a1a1a; color: #fff; }
+        .job { border: 1px solid #333; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .progress-bar { width: 100%; height: 20px; background: #333; border-radius: 10px; }
+        .progress-fill { height: 100%; background: #4CAF50; border-radius: 10px; transition: width 0.3s; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .log { background: #000; padding: 10px; height: 200px; overflow-y: scroll; font-family: monospace; }
+    </style>
+</head>
+<body>
+<h1>🎬 Синхронизация TMDB</h1>
+
+<div>
+    <button onclick="startMovies()">🎥 Старт фильмов</button>
+    <button onclick="startSeries()">📺 Старт сериалов</button>
+    <button onclick="loadJobs()">📋 Загрузить задачи</button>
+</div>
+
+<div id="jobs"></div>
+
+<script>
+    const socket = io('http://10.1.0.46:5000', {
+        path: '/ws/sync'
+    });
+
+    socket.on('connect', () => {
+        console.log('✅ WebSocket подключен');
+    });
+
+    socket.on('job:update', (data) => {
+        console.log('📨 Обновление:', data);
+        updateJobProgress(data.jobId, data);
+    });
+
+    async function startMovies() {
+        const response = await fetch('/api/sync/movies', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ limit: 100, popularity: 1 })
+        });
+        const data = await response.json();
+        if (data.success) {
+            socket.emit('subscribe:job', data.jobId);
+            loadJobs();
+        }
+    }
+
+    async function startSeries() {
+        const response = await fetch('/api/sync/series', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ limit: 50, popularity: 1 })
+        });
+        const data = await response.json();
+        if (data.success) {
+            socket.emit('subscribe:job', data.jobId);
+            loadJobs();
+        }
+    }
+
+    async function loadJobs() {
+        const response = await fetch('/api/sync/jobs');
+        const data = await response.json();
+        renderJobs(data.jobs);
+    }
+
+    function renderJobs(jobs) {
+        const container = document.getElementById('jobs');
+        container.innerHTML = jobs.map(job => `
+                <div class="job" id="job-${job.id}">
+                    <h3>${job.job_name}</h3>
+                    <div>Статус: ${job.status}</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${job.progress}%"></div>
+                    </div>
+                    <div>Прогресс: ${job.processed_items}/${job.total_items} (${job.progress}%)</div>
+                    <div>✅ Успешно: ${job.processed_items - (job.failed_items + job.skipped_items)}</div>
+                    <div>❌ Ошибок: ${job.failed_items}</div>
+                    <div>⏭️ Пропущено: ${job.skipped_items}</div>
+                    <div>
+                        <button onclick="controlJob(${job.id}, 'pause')">⏸️ Пауза</button>
+                        <button onclick="controlJob(${job.id}, 'resume')">▶️ Возобновить</button>
+                        <button onclick="controlJob(${job.id}, 'stop')">⏹️ Стоп</button>
+                        <button onclick="deleteJob(${job.id})">🗑️ Удалить</button>
+                    </div>
+                </div>
+            `).join('');
+    }
+
+    async function controlJob(jobId, action) {
+        const response = await fetch(`/api/sync/job/${jobId}/${action}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        if (data.success) {
+            loadJobs();
+        }
+    }
+
+    async function deleteJob(jobId) {
+        if (confirm('Удалить задачу?')) {
+            const response = await fetch(`/api/sync/job/${jobId}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            if (data.success) {
+                loadJobs();
+            }
+        }
+    }
+
+    function updateJobProgress(jobId, update) {
+        const jobElement = document.getElementById(`job-${jobId}`);
+        if (jobElement) {
+            if (update.percentage !== undefined) {
+                const fill = jobElement.querySelector('.progress-fill');
+                if (fill) fill.style.width = `${update.percentage}%`;
+            }
+            if (update.message) {
+                console.log(`[Job ${jobId}] ${update.message}`);
+            }
+        }
+    }
+
+    // Загружаем задачи при старте
+    loadJobs();
+</script>
+</body>
+</html>

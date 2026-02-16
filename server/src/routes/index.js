@@ -5,6 +5,7 @@ import importRoutes from "./importRoutes.js";
 import tmdbMovieRoutes from "./movieRoutes.js";
 import tmdbSeriesRoutes from "./seriesRoutes.js";
 import infoRoutes from "./infoRoutes.js";
+import syncRoutes from "./syncRoutes.js";
 
 const router = express.Router();
 
@@ -35,4 +36,6 @@ router.use('/imports', importRoutes)
 router.use('/movies', tmdbMovieRoutes)
 router.use('/series', tmdbSeriesRoutes)
 router.use('/info', infoRoutes)
+router.use('/sync', syncRoutes)
+
 export default router;

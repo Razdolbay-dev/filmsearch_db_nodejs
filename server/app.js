@@ -1,15 +1,15 @@
 import express from 'express';
 import http from 'http';
 import cors from 'cors';
-import indexRoutes from './src/routes/index.js';
-
-// import { setupWebSocket } from './src/controllers/wsController.js';
 
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 // Импортируем конфигурацию
 import config from './src/config/index.js';
+import indexRoutes from './src/routes/index.js';
+import { initWebSocket } from './src/websocket/index.js';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,10 +21,11 @@ const PORT = config.app.port;
 const app = express();
 const server = http.createServer(app);
 
-// Настройка WebSocket
-// setupWebSocket(server);
+// Инициализируем WebSocket
+const wsServer = initWebSocket(server);
 
-app.use('/', express.static(join(__dirname, '../frontend/dist')));
+
+app.use('/', express.static(join(__dirname, '../public')));
 
 app.use(cors());
 app.use(express.json());
@@ -68,6 +69,7 @@ server.listen(PORT, HOST, () => {
    Database: ${config.database.username ? '✓ Configured' : '✗ Not configured'}
    TMDB API: ${config.tmdb.apiKey ? '✓ Configured' : '✗ Not configured'}
    Proxy: ${config.proxy.enabled ? '✓ Enabled' : '✗ Disabled'}
+   📡 WebSocket endpoint: ws://${HOST}:${PORT}/ws/sync
     `);
 });
 
