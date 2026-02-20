@@ -177,9 +177,10 @@ class SyncController {
             const jobId = req.params.jobId;
             connection = await pool.getConnection();
 
+            // Получаем задачу
             const [jobs] = await connection.execute(`
-            SELECT * FROM sync_jobs WHERE id = ?
-        `, [jobId]);
+                SELECT * FROM sync_jobs WHERE id = ?
+            `, [jobId]);
 
             if (jobs.length === 0) {
                 return res.status(404).json({
@@ -190,40 +191,58 @@ class SyncController {
 
             const job = jobs[0];
 
-            // Получаем статистику по обработанным элементам
+            // *** ВАЖНО: Получаем реальную статистику из processed_items ***
             const [stats] = await connection.execute(`
-            SELECT 
-                status,
-                COUNT(*) as count
-            FROM sync_processed_items
-            WHERE job_id = ?
-            GROUP BY status
-        `, [jobId]);
+                SELECT
+                    status,
+                    COUNT(*) as count
+                FROM sync_processed_items
+                WHERE job_id = ?
+                GROUP BY status
+            `, [jobId]);
 
-            const statusStats = stats.reduce((acc, row) => {
-                acc[row.status] = row.count;
-                return acc;
-            }, { completed: 0, failed: 0, skipped: 0 });
+            const statusStats = {
+                completed: 0,
+                failed: 0,
+                skipped: 0
+            };
+
+            stats.forEach(row => {
+                statusStats[row.status] = row.count;
+            });
 
             // Получаем последние 10 обработанных элементов
             const [recentItems] = await connection.execute(`
-            SELECT tmdb_id, item_type, status, processed_at
-            FROM sync_processed_items
-            WHERE job_id = ?
-            ORDER BY processed_at DESC
-            LIMIT 10
-        `, [jobId]);
+                SELECT tmdb_id, item_type, status, processed_at
+                FROM sync_processed_items
+                WHERE job_id = ?
+                ORDER BY processed_at DESC
+                    LIMIT 10
+            `, [jobId]);
 
+            // Отправляем клиенту
             res.json({
                 success: true,
                 job: {
-                    ...job,
+                    id: job.id,
+                    job_name: job.job_name,
+                    job_type: job.job_type,
+                    status: job.status,
+                    total_items: job.total_items,
+                    // Используем реальные счетчики из статистики
+                    processed_items: statusStats.completed + statusStats.failed + statusStats.skipped,
+                    failed_items: statusStats.failed,
+                    skipped_items: statusStats.skipped,
+                    // Успешные вычисляем как completed
+                    completed_items: statusStats.completed,
+                    started_at: job.started_at,
+                    completed_at: job.completed_at,
+                    error_message: job.error_message,
+                    metadata: job.metadata ? JSON.parse(job.metadata) : null,
                     progress: job.total_items > 0
-                        ? Math.round((job.processed_items / job.total_items) * 100)
+                        ? Math.round(((statusStats.completed + statusStats.failed + statusStats.skipped) / job.total_items) * 100)
                         : 0,
-                    stats: statusStats,
-                    recentItems,
-                    metadata: job.metadata ? JSON.parse(job.metadata) : null
+                    recentItems
                 }
             });
 

@@ -150,6 +150,7 @@ export async function startSyncJob(jobId, type = 'movies', filters = {}) {
             }
 
             // Обрабатываем батч
+
             for (const item of batch) {
                 try {
                     // Обновляем текущий ID
@@ -167,8 +168,12 @@ export async function startSyncJob(jobId, type = 'movies', filters = {}) {
                         popularity: item.popularity
                     }, wsServer);
 
+                    // Увеличиваем общий счетчик обработанных
+                    processedCount++;
+
+                    // Увеличиваем специфические счетчики
                     if (result.success) {
-                        processedCount++;
+                        // Успешно - ничего дополнительно не делаем
                         console.log(`✅ [Job ${jobId}] Успешно обработан ID: ${item.tmdb_id}`);
                     } else if (result.skipped) {
                         skippedCount++;
@@ -178,14 +183,14 @@ export async function startSyncJob(jobId, type = 'movies', filters = {}) {
                         console.log(`❌ [Job ${jobId}] Ошибка обработки ID: ${item.tmdb_id} - ${result.error}`);
                     }
 
-                    // Обновляем счетчики
+                    // *** СОХРАНЯЕМ ВСЕ СЧЕТЧИКИ В БД ПОСЛЕ КАЖДОГО ЭЛЕМЕНТА ***
                     await connection.execute(`
-                        UPDATE sync_jobs 
-                        SET processed_items = ?,
-                            failed_items = ?,
-                            skipped_items = ?
-                        WHERE id = ?
-                    `, [processedCount, failedCount, skippedCount, jobId]);
+            UPDATE sync_jobs 
+            SET processed_items = ?,
+                failed_items = ?,
+                skipped_items = ?
+            WHERE id = ?
+        `, [processedCount, failedCount, skippedCount, jobId]);
 
                     // Отправляем прогресс
                     const percentage = Math.round((processedCount / totalItems) * 100);
@@ -196,22 +201,31 @@ export async function startSyncJob(jobId, type = 'movies', filters = {}) {
                             processed: processedCount,
                             total: totalItems,
                             percentage,
-                            currentId: item.tmdb_id
+                            currentId: item.tmdb_id,
+                            stats: {
+                                completed: processedCount - failedCount - skippedCount,
+                                failed: failedCount,
+                                skipped: skippedCount
+                            }
                         });
                     }
 
-                    // Небольшая задержка между запросами
+                    // Задержка между запросами
                     await new Promise(resolve => setTimeout(resolve, 250));
 
                 } catch (itemError) {
                     console.error(`❌ [Job ${jobId}] Критическая ошибка обработки элемента ${item.tmdb_id}:`, itemError);
+
+                    // В случае критической ошибки тоже обновляем счетчики
+                    processedCount++;
                     failedCount++;
 
                     await connection.execute(`
-                        UPDATE sync_jobs 
-                        SET failed_items = ?
-                        WHERE id = ?
-                    `, [failedCount, jobId]);
+            UPDATE sync_jobs 
+            SET processed_items = ?,
+                failed_items = ?
+            WHERE id = ?
+        `, [processedCount, failedCount, jobId]);
                 }
             }
         }

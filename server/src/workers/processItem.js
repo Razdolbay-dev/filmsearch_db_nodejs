@@ -6,7 +6,6 @@ import { pool } from '../config/database.js';
 export async function processItem(jobId, item, wsServer) {
     const { tmdb_id, item_type } = item;
 
-    // Создаём сервис
     const service = item_type === 'movie'
         ? new MovieImportService()
         : new SeriesImportService();
@@ -14,11 +13,7 @@ export async function processItem(jobId, item, wsServer) {
     let connection = null;
 
     try {
-        // Получаем соединение из пула
         connection = await pool.getConnection();
-
-        // *** ВАЖНО: Передаём существующее соединение в сервис ***
-        // Сервис проверит this.connection и НЕ будет создавать новое
         service.connection = connection;
 
         // Отправляем статус "начало обработки"
@@ -31,7 +26,7 @@ export async function processItem(jobId, item, wsServer) {
             });
         }
 
-        // Вызываем ТВОЙ метод импорта - он использует наше соединение!
+        // Вызываем ТВОЙ метод импорта
         let result;
         if (item_type === 'movie') {
             result = await service.fetchAndStoreMovie(tmdb_id);
@@ -39,25 +34,15 @@ export async function processItem(jobId, item, wsServer) {
             result = await service.importSeriesById(tmdb_id);
         }
 
-        // Дальше логика успеха/ошибки...
+        // *** ВАЖНО: Проверяем результат ***
         if (result.success) {
-            // Сохраняем в sync_processed_items
-            await connection.execute(`
-                INSERT INTO sync_processed_items
-                    (tmdb_id, item_type, status, job_id, processed_at)
-                VALUES (?, ?, 'completed', ?, NOW())
-                    ON DUPLICATE KEY UPDATE
-                                         status = 'completed',
-                                         job_id = VALUES(job_id),
-                                         processed_at = NOW()
-            `, [tmdb_id, item_type, jobId]);
-
-            // Обновляем очередь
-            await connection.execute(`
-                UPDATE sync_queue
-                SET status = 'completed', processed_at = NOW()
-                WHERE job_id = ? AND tmdb_id = ? AND item_type = ?
-            `, [jobId, tmdb_id, item_type]);
+            // УСПЕХ: фильм реально импортирован
+            await upsertProcessedItem(connection, {
+                tmdb_id,
+                item_type,
+                status: 'completed',
+                jobId
+            });
 
             if (wsServer) {
                 wsServer.broadcastJobUpdate(jobId, {
@@ -69,56 +54,60 @@ export async function processItem(jobId, item, wsServer) {
                 });
             }
 
-            return { success: true, tmdb_id, title: result.title || result.seriesName };
+            return { success: true, tmdb_id };
 
-        } else {
-            // Логика для пропущенных (не Released, дата в будущем и т.д.)
+        } else if (result.reason) {
+            // ФИЛЬМ НЕ ПРОШЁЛ ПРОВЕРКУ (статус Planned, дата в будущем и т.д.)
+            // Это НЕ ошибка, а просто пропуск - используем INSERT IGNORE или ON DUPLICATE SKIP
+
+            // Вариант 1: Всё равно логируем как skipped (с обработкой дубликатов)
             await connection.execute(`
-                INSERT INTO sync_processed_items
+                INSERT INTO sync_processed_items 
                     (tmdb_id, item_type, status, job_id, processed_at)
                 VALUES (?, ?, 'skipped', ?, NOW())
+                ON DUPLICATE KEY UPDATE
+                    status = 'skipped',
+                    job_id = VALUES(job_id),
+                    processed_at = NOW()
             `, [tmdb_id, item_type, jobId]);
 
-            await connection.execute(`
-                UPDATE sync_queue
-                SET status = 'skipped',
-                    error_message = ?,
-                    processed_at = NOW()
-                WHERE job_id = ? AND tmdb_id = ? AND item_type = ?
-            `, [result.reason || 'Пропущено по условиям', jobId, tmdb_id, item_type]);
+            return { success: false, skipped: true, tmdb_id, reason: result.reason };
+
+        } else {
+            // РЕАЛЬНАЯ ОШИБКА (сеть, API, БД) - логируем как failed
+            await upsertProcessedItem(connection, {
+                tmdb_id,
+                item_type,
+                status: 'failed',
+                jobId,
+                error: result.error
+            });
 
             if (wsServer) {
                 wsServer.broadcastJobUpdate(jobId, {
-                    event: 'item:skipped',
+                    event: 'item:failed',
                     tmdbId: tmdb_id,
                     type: item_type,
-                    reason: result.reason,
-                    message: `⏭️ Пропущен: ${result.reason || 'не соответствует критериям'}`
+                    error: result.error,
+                    message: `❌ Ошибка: ${result.error}`
                 });
             }
 
-            return { success: false, skipped: true, tmdb_id, reason: result.reason };
+            return { success: false, tmdb_id, error: result.error };
         }
 
     } catch (error) {
-        console.error(`❌ Ошибка импорта ${item_type} ${tmdb_id}:`, error.message);
+        // Неожиданная ошибка в самом processItem
+        console.error(`❌ [processItem] Критическая ошибка:`, error);
 
         if (connection) {
-            // Логируем ошибку
-            await connection.execute(`
-                INSERT INTO sync_processed_items
-                    (tmdb_id, item_type, status, job_id, processed_at)
-                VALUES (?, ?, 'failed', ?, NOW())
-            `, [tmdb_id, item_type, jobId]);
-
-            await connection.execute(`
-                UPDATE sync_queue
-                SET status = 'failed',
-                    error_message = ?,
-                    attempts = attempts + 1,
-                    last_attempt = NOW()
-                WHERE job_id = ? AND tmdb_id = ? AND item_type = ?
-            `, [error.message.slice(0, 500), jobId, tmdb_id, item_type]);
+            await upsertProcessedItem(connection, {
+                tmdb_id,
+                item_type,
+                status: 'failed',
+                jobId,
+                error: error.message
+            });
         }
 
         if (wsServer) {
@@ -131,18 +120,36 @@ export async function processItem(jobId, item, wsServer) {
             });
         }
 
-        return { success: false, tmdb_id, error: error.message };
+        throw error; // Пробрасываем дальше, чтобы syncWorker знал о проблеме
 
     } finally {
-        // *** КРИТИЧЕСКИ ВАЖНО: Очищаем connection у сервиса ***
-        // Чтобы сервис не закрыл его в disconnect()
         if (service.connection) {
             service.connection = null;
         }
-
-        // Возвращаем соединение в пул
         if (connection) {
             connection.release();
         }
     }
+}
+
+// Вспомогательная функция для upsert с обработкой дубликатов
+async function upsertProcessedItem(connection, { tmdb_id, item_type, status, jobId, error = null }) {
+    await connection.execute(`
+        INSERT INTO sync_processed_items 
+            (tmdb_id, item_type, status, job_id, processed_at)
+        VALUES (?, ?, ?, ?, NOW())
+        ON DUPLICATE KEY UPDATE
+            status = VALUES(status),
+            job_id = VALUES(job_id),
+            processed_at = NOW()
+    `, [tmdb_id, item_type, status, jobId]);
+
+    // Также обновляем sync_queue
+    await connection.execute(`
+        UPDATE sync_queue 
+        SET status = ?, 
+            processed_at = NOW(),
+            error_message = ?
+        WHERE job_id = ? AND tmdb_id = ? AND item_type = ?
+    `, [status, error ? error.slice(0, 500) : null, jobId, tmdb_id, item_type]);
 }

@@ -5,130 +5,424 @@
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         body { font-family: Arial; padding: 20px; background: #1a1a1a; color: #fff; }
-        .job { border: 1px solid #333; padding: 15px; margin: 10px 0; border-radius: 5px; }
-        .progress-bar { width: 100%; height: 20px; background: #333; border-radius: 10px; }
-        .progress-fill { height: 100%; background: #4CAF50; border-radius: 10px; transition: width 0.3s; }
-        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
-        .log { background: #000; padding: 10px; height: 200px; overflow-y: scroll; font-family: monospace; }
+        .job { border: 1px solid #333; padding: 15px; margin: 10px 0; border-radius: 5px; background: #2a2a2a; }
+        .progress-bar { width: 100%; height: 25px; background: #333; border-radius: 12px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #4CAF50, #8BC34A); border-radius: 12px; transition: width 0.3s; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; }
+        button.pause { background: #FFC107; color: #000; }
+        button.resume { background: #4CAF50; color: #fff; }
+        button.stop { background: #F44336; color: #fff; }
+        button.delete { background: #9C27B0; color: #fff; }
+        .stats { display: flex; gap: 20px; margin: 10px 0; }
+        .stats div { padding: 5px 10px; border-radius: 4px; }
+        .stats .success { background: #2E7D32; }
+        .stats .error { background: #C62828; }
+        .stats .skipped { background: #FF8F00; }
+        .job-header { display: flex; justify-content: space-between; align-items: center; }
+        .job-type { padding: 3px 8px; border-radius: 4px; background: #444; font-size: 0.8em; }
+        .timestamp { color: #888; font-size: 0.8em; }
+        .controls { display: flex; gap: 5px; flex-wrap: wrap; }
+        .log { background: #000; padding: 10px; height: 200px; overflow-y: scroll; font-family: monospace; margin-top: 20px; }
+        .last-update { color: #4CAF50; font-size: 0.9em; margin-top: 5px; }
+        .auto-refresh-toggle { margin: 10px 0; padding: 5px; background: #333; border-radius: 4px; display: inline-block; }
     </style>
 </head>
 <body>
 <h1>🎬 Синхронизация TMDB</h1>
 
-<div>
-    <button onclick="startMovies()">🎥 Старт фильмов</button>
-    <button onclick="startSeries()">📺 Старт сериалов</button>
-    <button onclick="loadJobs()">📋 Загрузить задачи</button>
+<div style="margin-bottom: 20px;">
+    <button onclick="startMovies()" style="background: #2196F3; color: white;">🎥 Старт фильмов</button>
+    <button onclick="startSeries()" style="background: #FF9800; color: white;">📺 Старт сериалов</button>
+    <button onclick="loadJobs()" style="background: #607D8B; color: white;">📋 Загрузить задачи</button>
+    <button onclick="clearCompleted()" style="background: #795548; color: white;">🧹 Очистить завершенные</button>
 </div>
 
-<div id="jobs"></div>
+<div class="auto-refresh-toggle">
+    <label>
+        <input type="checkbox" id="autoRefresh" checked onchange="toggleAutoRefresh()">
+        Автообновление (каждые 10 сек)
+    </label>
+    <span id="countdown"  style="visibility: hidden;"></span>
+</div>
+
+<div id="jobs" style="margin-top: 20px;"></div>
+
+<div class="log" id="log">
+    <div>📋 Лог событий...</div>
+</div>
 
 <script>
+    // ==================== НАСТРОЙКИ ====================
+    const API_URL = ''; // Пусто, если тот же хост
+    const AUTO_REFRESH_INTERVAL = 10000; // 10 секунд
+
+    // ==================== СОСТОЯНИЕ ====================
+    let autoRefreshEnabled = true;
+    let refreshTimer = null;
+    let countdownInterval = null;
+    let secondsLeft = 10;
+
+    // ==================== WEBSOCKET ====================
     const socket = io('http://10.1.0.46:5000', {
         path: '/ws/sync'
     });
 
     socket.on('connect', () => {
         console.log('✅ WebSocket подключен');
+        addLog('✅ WebSocket подключен');
+
+        // Подписываемся на все активные задачи
+        document.querySelectorAll('.job').forEach(job => {
+            const jobId = job.id.replace('job-', '');
+            socket.emit('subscribe:job', jobId);
+        });
     });
 
     socket.on('job:update', (data) => {
-        console.log('📨 Обновление:', data);
+        console.log('📨 WebSocket обновление:', data);
         updateJobProgress(data.jobId, data);
+
+        if (data.event === 'item:completed') {
+            addLog(`✅ ${data.message || 'Элемент импортирован'}`);
+        } else if (data.event === 'item:skipped') {
+            addLog(`⏭️ ${data.message || 'Элемент пропущен'}`);
+        } else if (data.event === 'item:failed') {
+            addLog(`❌ ${data.message || 'Ошибка импорта'}`);
+        }
     });
 
+    socket.on('disconnect', () => {
+        console.log('❌ WebSocket отключен');
+        addLog('❌ WebSocket отключен');
+    });
+
+    // ==================== AJAX ФУНКЦИИ ====================
+    async function loadJobs() {
+        try {
+            const response = await fetch(`${API_URL}/api/sync/jobs`);
+            const data = await response.json();
+
+            if (data.success) {
+                renderJobs(data.jobs);
+
+                // Подписываемся на WebSocket обновления для новых задач
+                data.jobs.forEach(job => {
+                    if (job.status === 'running' || job.status === 'paused') {
+                        socket.emit('subscribe:job', job.id);
+                    }
+                });
+
+                addLog(`📊 Загружено ${data.jobs.length} задач`);
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки задач:', error);
+            addLog(`❌ Ошибка загрузки задач: ${error.message}`);
+        }
+    }
+
     async function startMovies() {
-        const response = await fetch('/api/sync/movies', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ limit: 100, popularity: 1 })
-        });
-        const data = await response.json();
-        if (data.success) {
-            socket.emit('subscribe:job', data.jobId);
-            loadJobs();
+        try {
+            const response = await fetch(`${API_URL}/api/sync/movies`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ popularity: 1 })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                addLog(`🎥 Запущена синхронизация фильмов (Job #${data.jobId})`);
+                socket.emit('subscribe:job', data.jobId);
+                await loadJobs();
+            }
+        } catch (error) {
+            addLog(`❌ Ошибка запуска: ${error.message}`);
         }
     }
 
     async function startSeries() {
-        const response = await fetch('/api/sync/series', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ limit: 50, popularity: 1 })
-        });
-        const data = await response.json();
-        if (data.success) {
-            socket.emit('subscribe:job', data.jobId);
-            loadJobs();
+        try {
+            const response = await fetch(`${API_URL}/api/sync/series`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ popularity: 1 })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                addLog(`📺 Запущена синхронизация сериалов (Job #${data.jobId})`);
+                socket.emit('subscribe:job', data.jobId);
+                await loadJobs();
+            }
+        } catch (error) {
+            addLog(`❌ Ошибка запуска: ${error.message}`);
         }
     }
 
-    async function loadJobs() {
-        const response = await fetch('/api/sync/jobs');
-        const data = await response.json();
-        renderJobs(data.jobs);
-    }
-
-    function renderJobs(jobs) {
-        const container = document.getElementById('jobs');
-        container.innerHTML = jobs.map(job => `
-                <div class="job" id="job-${job.id}">
-                    <h3>${job.job_name}</h3>
-                    <div>Статус: ${job.status}</div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${job.progress}%"></div>
-                    </div>
-                    <div>Прогресс: ${job.processed_items}/${job.total_items} (${job.progress}%)</div>
-                    <div>✅ Успешно: ${job.processed_items - (job.failed_items + job.skipped_items)}</div>
-                    <div>❌ Ошибок: ${job.failed_items}</div>
-                    <div>⏭️ Пропущено: ${job.skipped_items}</div>
-                    <div>
-                        <button onclick="controlJob(${job.id}, 'pause')">⏸️ Пауза</button>
-                        <button onclick="controlJob(${job.id}, 'resume')">▶️ Возобновить</button>
-                        <button onclick="controlJob(${job.id}, 'stop')">⏹️ Стоп</button>
-                        <button onclick="deleteJob(${job.id})">🗑️ Удалить</button>
-                    </div>
-                </div>
-            `).join('');
-    }
-
     async function controlJob(jobId, action) {
-        const response = await fetch(`/api/sync/job/${jobId}/${action}`, {
-            method: 'POST'
-        });
-        const data = await response.json();
-        if (data.success) {
-            loadJobs();
+        try {
+            const response = await fetch(`${API_URL}/api/sync/job/${jobId}/${action}`, {
+                method: 'POST'
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                addLog(`🔄 Job #${jobId}: ${action}`);
+                await loadJobs(); // Перезагружаем после действия
+            }
+        } catch (error) {
+            addLog(`❌ Ошибка ${action} Job #${jobId}: ${error.message}`);
         }
     }
 
     async function deleteJob(jobId) {
-        if (confirm('Удалить задачу?')) {
-            const response = await fetch(`/api/sync/job/${jobId}`, {
+        if (!confirm(`Удалить задачу #${jobId}?`)) return;
+
+        try {
+            const response = await fetch(`${API_URL}/api/sync/job/${jobId}`, {
                 method: 'DELETE'
             });
             const data = await response.json();
+
             if (data.success) {
-                loadJobs();
+                addLog(`🗑️ Job #${jobId} удалена`);
+                await loadJobs();
             }
+        } catch (error) {
+            addLog(`❌ Ошибка удаления Job #${jobId}: ${error.message}`);
         }
+    }
+
+    async function clearCompleted() {
+        try {
+            const response = await fetch(`${API_URL}/api/sync/jobs`);
+            const data = await response.json();
+
+            if (data.success) {
+                const completedJobs = data.jobs.filter(job =>
+                    job.status === 'completed' || job.status === 'failed' || job.status === 'stopped'
+                );
+
+                for (const job of completedJobs) {
+                    await fetch(`${API_URL}/api/sync/job/${job.id}`, {
+                        method: 'DELETE'
+                    });
+                }
+
+                addLog(`🧹 Очищено ${completedJobs.length} завершенных задач`);
+                await loadJobs();
+            }
+        } catch (error) {
+            addLog(`❌ Ошибка очистки: ${error.message}`);
+        }
+    }
+
+    // ==================== ОТОБРАЖЕНИЕ ====================
+    function renderJobs(jobs) {
+        const container = document.getElementById('jobs');
+
+        if (jobs.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Нет активных задач</div>';
+            return;
+        }
+
+        container.innerHTML = jobs.map(job => {
+            const completed = job.completed_items || (job.processed_items - job.failed_items - job.skipped_items);
+
+            return `
+                <div class="job" id="job-${job.id}" data-status="${job.status}">
+                    <div class="job-header">
+                        <div>
+                            <strong>#${job.id}: ${job.job_name}</strong>
+                            <span class="job-type">${job.job_type === 'movies' ? '🎥 Фильмы' : '📺 Сериалы'}</span>
+                            <span class="timestamp">${new Date(job.created_at).toLocaleString()}</span>
+                        </div>
+                        <div style="color: ${getStatusColor(job.status)}">
+                            ${getStatusIcon(job.status)} ${getStatusText(job.status)}
+                        </div>
+                    </div>
+
+
+
+                    <div style="margin: 10px 0;">
+                        Прогресс: <strong>${job.processed_items || 0}/${job.total_items || 0}</strong> (${job.progress || 0}%)
+                    </div>
+
+                    <div class="stats">
+                        <div class="success">✅ Успешно: ${completed}</div>
+                        <div class="error">❌ Ошибок: ${job.failed_items || 0}</div>
+                        <div class="skipped">⏭️ Пропущено: ${job.skipped_items || 0}</div>
+                    </div>
+
+                    ${job.current_item_id ? `<div>Текущий ID: ${job.current_item_id}</div>` : ''}
+
+                    <div class="controls">
+                        ${job.status === 'running' ?
+                `<button class="pause" onclick="controlJob(${job.id}, 'pause')">⏸️ Пауза</button>` : ''}
+                        ${job.status === 'paused' ?
+                `<button class="resume" onclick="controlJob(${job.id}, 'resume')">▶️ Возобновить</button>` : ''}
+                        ${job.status === 'running' || job.status === 'paused' ?
+                `<button class="stop" onclick="controlJob(${job.id}, 'stop')">⏹️ Стоп</button>` : ''}
+                        ${job.status === 'stopped' || job.status === 'completed' || job.status === 'failed' ?
+                `<button class="resume" onclick="controlJob(${job.id}, 'resume')">🔄 Перезапустить</button>` : ''}
+                        <button class="delete" onclick="deleteJob(${job.id})">🗑️ Удалить</button>
+                    </div>
+
+                    ${job.error_message ? `<div style="color: #F44336; margin-top: 10px;">❌ ${job.error_message}</div>` : ''}
+
+                    ${job.recentItems && job.recentItems.length > 0 ? `
+                        <div style="margin-top: 10px; font-size: 0.9em; color: #888;">
+                            Последние: ${job.recentItems.map(item =>
+                `${item.status === 'completed' ? '✅' : item.status === 'failed' ? '❌' : '⏭️'} ${item.tmdb_id}`
+            ).join(' ')}
+                        </div>
+                    ` : ''}
+
+
+                </div>
+            `}).join('');
     }
 
     function updateJobProgress(jobId, update) {
         const jobElement = document.getElementById(`job-${jobId}`);
-        if (jobElement) {
-            if (update.percentage !== undefined) {
-                const fill = jobElement.querySelector('.progress-fill');
-                if (fill) fill.style.width = `${update.percentage}%`;
+        if (!jobElement) return;
+
+        if (update.percentage !== undefined) {
+            const fill = jobElement.querySelector('.progress-fill');
+            if (fill) fill.style.width = `${update.percentage}%`;
+        }
+
+        if (update.processed !== undefined && update.total !== undefined) {
+            const progressText = jobElement.querySelector('.progress-bar').nextSibling;
+            if (progressText) {
+                progressText.textContent = `Прогресс: ${update.processed}/${update.total} (${update.percentage}%)`;
             }
-            if (update.message) {
-                console.log(`[Job ${jobId}] ${update.message}`);
+        }
+
+        if (update.stats) {
+            const statsDiv = jobElement.querySelector('.stats');
+            if (statsDiv) {
+                statsDiv.innerHTML = `
+                        <div class="success">✅ Успешно: ${update.stats.completed}</div>
+                        <div class="error">❌ Ошибок: ${update.stats.failed}</div>
+                        <div class="skipped">⏭️ Пропущено: ${update.stats.skipped}</div>
+                    `;
             }
+        }
+
+        if (update.currentId) {
+            const currentIdDiv = jobElement.querySelector('[class*="Текущий ID"]');
+            if (currentIdDiv) {
+                currentIdDiv.textContent = `Текущий ID: ${update.currentId}`;
+            }
+        }
+
+        const updateDiv = document.getElementById(`update-${jobId}`);
+        if (updateDiv) {
+            updateDiv.textContent = `Обновлено: ${new Date().toLocaleTimeString()}`;
         }
     }
 
-    // Загружаем задачи при старте
-    loadJobs();
+    function addLog(message) {
+        const log = document.getElementById('log');
+        const time = new Date().toLocaleTimeString();
+        log.innerHTML = `<div>[${time}] ${message}</div>` + log.innerHTML;
+
+        // Ограничиваем длину лога
+        if (log.children.length > 50) {
+            log.removeChild(log.lastChild);
+        }
+    }
+
+    function getStatusColor(status) {
+        const colors = {
+            'running': '#4CAF50',
+            'paused': '#FFC107',
+            'completed': '#2196F3',
+            'failed': '#F44336',
+            'stopped': '#9E9E9E',
+            'pending': '#FF9800'
+        };
+        return colors[status] || '#fff';
+    }
+
+    function getStatusIcon(status) {
+        const icons = {
+            'running': '▶️',
+            'paused': '⏸️',
+            'completed': '✅',
+            'failed': '❌',
+            'stopped': '⏹️',
+            'pending': '⏳'
+        };
+        return icons[status] || '';
+    }
+
+    function getStatusText(status) {
+        const texts = {
+            'running': 'Выполняется',
+            'paused': 'На паузе',
+            'completed': 'Завершено',
+            'failed': 'Ошибка',
+            'stopped': 'Остановлено',
+            'pending': 'Ожидание'
+        };
+        return texts[status] || status;
+    }
+
+    // ==================== АВТООБНОВЛЕНИЕ ====================
+    function toggleAutoRefresh() {
+        autoRefreshEnabled = document.getElementById('autoRefresh').checked;
+
+        if (autoRefreshEnabled) {
+            startAutoRefresh();
+            addLog('🔄 Автообновление включено');
+        } else {
+            stopAutoRefresh();
+            addLog('⏸️ Автообновление отключено');
+        }
+    }
+
+    function startAutoRefresh() {
+        stopAutoRefresh(); // Очищаем старые таймеры
+
+        // Запускаем интервал обновления
+        refreshTimer = setInterval(() => {
+            if (autoRefreshEnabled) {
+                loadJobs();
+                secondsLeft = AUTO_REFRESH_INTERVAL / 1000;
+            }
+        }, AUTO_REFRESH_INTERVAL);
+
+        // Запускаем счетчик
+        secondsLeft = AUTO_REFRESH_INTERVAL / 1000;
+        countdownInterval = setInterval(() => {
+            if (autoRefreshEnabled) {
+                secondsLeft--;
+                if (secondsLeft <= 0) {
+                    secondsLeft = AUTO_REFRESH_INTERVAL / 1000;
+                }
+                document.getElementById('countdown').textContent = ``;
+            }
+        }, 1000);
+    }
+
+    function stopAutoRefresh() {
+        if (refreshTimer) {
+            clearInterval(refreshTimer);
+            refreshTimer = null;
+        }
+        if (countdownInterval) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+        }
+        document.getElementById('countdown').textContent = '';
+    }
+
+    // ==================== ИНИЦИАЛИЗАЦИЯ ====================
+    document.addEventListener('DOMContentLoaded', () => {
+        loadJobs();
+        startAutoRefresh();
+    });
 </script>
 </body>
 </html>
