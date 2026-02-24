@@ -1,5 +1,7 @@
 import express from "express";
 
+import adminRoutes from './adminRoutes.js';
+
 import exportsRoutes from "./exportsRoutes.js";
 import importRoutes from "./importRoutes.js";
 
@@ -38,11 +40,15 @@ router.get('/', (req, res) => {
 // Маршрут для проверки конфигурации (опционально)
 router.use('/exports', exportsRoutes)
 router.use('/imports', importRoutes)
-router.use('/movies', movieRoutes)
-router.use('/series', seriesRoutes)
+
 router.use('/info', infoRoutes)
 router.use('/sync', syncRoutes)
 router.use('/tmdb_movies', tmdbMovieRoutes)
 router.use('/tmdb_series', tmdbSeriesRoutes)
+router.use('/movies', movieRoutes)
+router.use('/series', seriesRoutes)
+
+// Маршруты админки
+router.use('/admin', adminRoutes);
 
 export default router;

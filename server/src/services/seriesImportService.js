@@ -2,7 +2,7 @@ import { pool } from "../config/database.js";
 import axios from 'axios';
 
 // URL API
-const API_BASE_URL = 'http://127.0.0.1:5000/api/series';
+const API_BASE_URL = 'http://127.0.0.1:5000/api/tmdb_series';
 
 export class SeriesImportService {
     constructor() {

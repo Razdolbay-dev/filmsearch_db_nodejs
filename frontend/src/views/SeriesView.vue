@@ -26,21 +26,21 @@
     <!-- Фильтры -->
     <div class="mb-6 flex flex-wrap gap-2">
       <button
-          @click="loadSeries"
+          @click="setFilter('all')"
           class="px-4 py-2 rounded transition"
           :class="activeFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'"
       >
         Все
       </button>
       <button
-          @click="loadPopular"
+          @click="setFilter('popular')"
           class="px-4 py-2 rounded transition"
           :class="activeFilter === 'popular' ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'"
       >
         Популярные
       </button>
       <button
-          @click="loadInProduction"
+          @click="setFilter('production')"
           class="px-4 py-2 rounded transition"
           :class="activeFilter === 'production' ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'"
       >
@@ -68,7 +68,7 @@
 
     <!-- Пагинация -->
     <Pagination
-        v-if="totalPages > 1 && activeFilter !== 'popular' && activeFilter !== 'production'"
+        v-if="totalPages > 1 && showPagination"
         :current-page="currentPage"
         :total-pages="totalPages"
         @page-change="changePage"
@@ -77,9 +77,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { apiClient } from '../api/client';
+import { apiClient } from '@/api/client';
 import SeriesCard from '../components/SeriesCard.vue';
 import Pagination from '../components/Pagination.vue';
 
@@ -97,76 +97,111 @@ const loading = ref(true);
 const currentPage = ref(1);
 const totalPages = ref(1);
 const activeFilter = ref('all');
-const localSearchQuery = ref(props.searchQuery);
+const localSearchQuery = ref('');
+
+// Вычисляемое свойство для отображения пагинации
+const showPagination = computed(() => {
+  return activeFilter.value !== 'popular' && activeFilter.value !== 'production';
+});
+
+// Инициализация из URL параметров
+const initFromQuery = () => {
+  const query = route.query;
+
+  // Восстанавливаем страницу
+  if (query.page) {
+    currentPage.value = parseInt(query.page);
+  }
+
+  // Восстанавливаем поиск
+  if (query.search) {
+    localSearchQuery.value = query.search;
+  }
+
+  // Восстанавливаем фильтр
+  if (query.filter) {
+    activeFilter.value = query.filter;
+  }
+
+  console.log('📌 Инициализация из URL:', {
+    page: currentPage.value,
+    search: localSearchQuery.value,
+    filter: activeFilter.value
+  });
+};
+
+// Обновление URL с параметрами
+const updateQueryParams = () => {
+  const query = {};
+
+  if (currentPage.value > 1) {
+    query.page = currentPage.value;
+  }
+
+  if (localSearchQuery.value) {
+    query.search = localSearchQuery.value;
+  }
+
+  if (activeFilter.value !== 'all') {
+    query.filter = activeFilter.value;
+  }
+
+  console.log('🔄 Обновление URL:', query);
+
+  router.replace({
+    query: query
+  });
+};
+
+// Установка фильтра
+const setFilter = (filter) => {
+  activeFilter.value = filter;
+  currentPage.value = 1;
+  localSearchQuery.value = ''; // Очищаем поиск при смене фильтра
+  updateQueryParams();
+  loadData();
+};
 
 const goToSeriesDetails = (id) => {
   router.push(`/series/${id}`);
 };
 
-const loadSeries = async (page = 1) => {
-  loading.value = true;
-  activeFilter.value = 'all';
-
-  try {
-    const response = await apiClient.getSeries(page);
-    series.value = response.data.data || [];
-    totalPages.value = response.data.pagination?.pages || 1;
-    currentPage.value = page;
-  } catch (error) {
-    console.error('Error loading series:', error);
-  } finally {
-    loading.value = false;
-  }
-};
-
-const loadPopular = async () => {
-  loading.value = true;
-  activeFilter.value = 'popular';
-
-  try {
-    const response = await apiClient.getPopularSeries();
-    series.value = response.data || [];
-    totalPages.value = 1;
-  } catch (error) {
-    console.error('Error loading popular series:', error);
-  } finally {
-    loading.value = false;
-  }
-};
-
-const loadInProduction = async () => {
-  loading.value = true;
-  activeFilter.value = 'production';
-
-  try {
-    const response = await apiClient.getInProductionSeries();
-    series.value = response.data.data || [];
-    totalPages.value = response.data.pagination?.pages || 1;
-    currentPage.value = 1;
-  } catch (error) {
-    console.error('Error loading in production series:', error);
-  } finally {
-    loading.value = false;
-  }
-};
-
-const searchSeries = async (page = 1) => {
-  if (!localSearchQuery.value.trim()) {
-    loadSeries();
-    return;
-  }
-
+// Загрузка данных в зависимости от состояния
+const loadData = async () => {
   loading.value = true;
 
   try {
-    const response = await apiClient.searchSeries(localSearchQuery.value, page);
-    series.value = response.data.data || [];
-    totalPages.value = response.data.pagination?.pages || 1;
-    currentPage.value = page;
+    let response;
 
-    router.push({ query: { q: localSearchQuery.value } });
+    if (localSearchQuery.value) {
+      // Поиск
+      response = await apiClient.searchSeries(localSearchQuery.value, currentPage.value);
+    } else {
+      switch (activeFilter.value) {
+        case 'popular':
+          response = await apiClient.getPopularSeries();
+          break;
+        case 'production':
+          response = await apiClient.getInProductionSeries(currentPage.value);
+          break;
+        default:
+          response = await apiClient.getSeries(currentPage.value);
+      }
+    }
+
+    console.log('📦 Загружены данные:', response);
+
+    if (response.success) {
+      if (activeFilter.value === 'popular') {
+        series.value = response.data || [];
+        totalPages.value = 1;
+      } else {
+        series.value = response.data.data || [];
+        totalPages.value = response.data.pagination?.pages || 1;
+      }
+    }
   } catch (error) {
-    console.error('Error searching series:', error);
+    console.error('❌ Ошибка загрузки:', error);
   } finally {
     loading.value = false;
   }
@@ -174,34 +209,27 @@ const searchSeries = async (page = 1) => {
 
 const handleSearch = () => {
   currentPage.value = 1;
-  searchSeries(1);
+  updateQueryParams();
+  loadData();
 };
 
 const changePage = (page) => {
-  if (activeFilter.value === 'popular' || activeFilter.value === 'production') return;
-
-  if (localSearchQuery.value) {
-    searchSeries(page);
-  } else {
-    loadSeries(page);
-  }
-
+  currentPage.value = page;
+  updateQueryParams();
+  loadData();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
-onMounted(() => {
-  if (props.searchQuery) {
-    localSearchQuery.value = props.searchQuery;
-    searchSeries(1);
-  } else {
-    loadSeries(1);
-  }
-});
+// Следим за изменениями маршрута
+watch(() => route.query, (newQuery) => {
+  console.log('🔍 Изменение query:', newQuery);
+  initFromQuery();
+  loadData();
+}, { deep: true });
 
-watch(() => props.searchQuery, (newQuery) => {
-  if (newQuery) {
-    localSearchQuery.value = newQuery;
-    searchSeries(1);
-  }
+// Инициализация при монтировании
+onMounted(() => {
+  initFromQuery();
+  loadData();
 });
 </script>
