@@ -1,23 +1,23 @@
-import SeriesService from '../services/seriesService.js';
+import MoviesService from '../services/moviesService.js';
 
-class SeriesController {
+class MoviesController {
     constructor() {
-        this.seriesService = new SeriesService();
+        this.moviesService = new MoviesService();
     }
 
-    getAllSeries = async (req, res) => {
+    getAllMovies = async (req, res) => {
         try {
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 20;
 
-            const result = await this.seriesService.getAllSeries(page, limit);
+            const result = await this.moviesService.getAllMovies(page, limit);
 
             res.json({
                 success: true,
                 data: result
             });
         } catch (error) {
-            console.error('Error in getAllSeries:', error);
+            console.error('Error in getAllMovies:', error);
             res.status(500).json({
                 success: false,
                 error: 'Internal server error'
@@ -25,25 +25,25 @@ class SeriesController {
         }
     };
 
-    getSeriesById = async (req, res) => {
+    getMovieById = async (req, res) => {
         try {
             const { id } = req.params;
 
-            const series = await this.seriesService.getSeriesById(id);
+            const movie = await this.moviesService.getMovieById(id);
 
-            if (!series) {
+            if (!movie) {
                 return res.status(404).json({
                     success: false,
-                    error: 'Series not found'
+                    error: 'Movie not found'
                 });
             }
 
             res.json({
                 success: true,
-                data: series
+                data: movie
             });
         } catch (error) {
-            console.error('Error in getSeriesById:', error);
+            console.error('Error in getMovieById:', error);
             res.status(500).json({
                 success: false,
                 error: 'Internal server error'
@@ -51,7 +51,7 @@ class SeriesController {
         }
     };
 
-    searchSeries = async (req, res) => {
+    searchMovies = async (req, res) => {
         try {
             const { q } = req.query;
             const page = parseInt(req.query.page) || 1;
@@ -64,14 +64,14 @@ class SeriesController {
                 });
             }
 
-            const result = await this.seriesService.searchSeries(q, page, limit);
+            const result = await this.moviesService.searchMovies(q, page, limit);
 
             res.json({
                 success: true,
                 data: result
             });
         } catch (error) {
-            console.error('Error in searchSeries:', error);
+            console.error('Error in searchMovies:', error);
             res.status(500).json({
                 success: false,
                 error: 'Internal server error'
@@ -79,20 +79,20 @@ class SeriesController {
         }
     };
 
-    getSeriesByGenre = async (req, res) => {
+    getMoviesByGenre = async (req, res) => {
         try {
             const { genreId } = req.params;
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 20;
 
-            const result = await this.seriesService.getSeriesByGenre(genreId, page, limit);
+            const result = await this.moviesService.getMoviesByGenre(genreId, page, limit);
 
             res.json({
                 success: true,
                 data: result
             });
         } catch (error) {
-            console.error('Error in getSeriesByGenre:', error);
+            console.error('Error in getMoviesByGenre:', error);
             res.status(500).json({
                 success: false,
                 error: 'Internal server error'
@@ -100,18 +100,18 @@ class SeriesController {
         }
     };
 
-    getPopularSeries = async (req, res) => {
+    getPopularMovies = async (req, res) => {
         try {
             const limit = parseInt(req.query.limit) || 20;
 
-            const series = await this.seriesService.getPopularSeries(limit);
+            const movies = await this.moviesService.getPopularMovies(limit);
 
             res.json({
                 success: true,
-                data: series
+                data: movies
             });
         } catch (error) {
-            console.error('Error in getPopularSeries:', error);
+            console.error('Error in getPopularMovies:', error);
             res.status(500).json({
                 success: false,
                 error: 'Internal server error'
@@ -119,57 +119,20 @@ class SeriesController {
         }
     };
 
-    getSeriesSeasons = async (req, res) => {
+    getMoviesByYear = async (req, res) => {
         try {
-            const { seriesId } = req.params;
-
-            const seasons = await this.seriesService.getSeriesSeasons(seriesId);
-
-            res.json({
-                success: true,
-                data: seasons
-            });
-        } catch (error) {
-            console.error('Error in getSeriesSeasons:', error);
-            res.status(500).json({
-                success: false,
-                error: 'Internal server error'
-            });
-        }
-    };
-
-    getSeasonEpisodes = async (req, res) => {
-        try {
-            const { seasonId } = req.params;
-
-            const episodes = await this.seriesService.getSeasonEpisodes(seasonId);
-
-            res.json({
-                success: true,
-                data: episodes
-            });
-        } catch (error) {
-            console.error('Error in getSeasonEpisodes:', error);
-            res.status(500).json({
-                success: false,
-                error: 'Internal server error'
-            });
-        }
-    };
-
-    getInProductionSeries = async (req, res) => {
-        try {
+            const { year } = req.params;
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 20;
 
-            const result = await this.seriesService.getInProductionSeries(page, limit);
+            const result = await this.moviesService.getMoviesByYear(year, page, limit);
 
             res.json({
                 success: true,
                 data: result
             });
         } catch (error) {
-            console.error('Error in getInProductionSeries:', error);
+            console.error('Error in getMoviesByYear:', error);
             res.status(500).json({
                 success: false,
                 error: 'Internal server error'
@@ -178,4 +141,4 @@ class SeriesController {
     };
 }
 
-export default SeriesController;
+export default MoviesController;

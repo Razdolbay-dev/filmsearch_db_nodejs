@@ -25,7 +25,7 @@ const server = http.createServer(app);
 const wsServer = initWebSocket(server);
 
 
-app.use('/', express.static(join(__dirname, '../public')));
+app.use('/', express.static(join(__dirname, '../frontend/dist')));
 
 app.use(cors());
 app.use(express.json());

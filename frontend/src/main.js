@@ -1,14 +1,28 @@
-import './assets/main.css'
+import { createApp } from 'vue';
+import './style.css';
+import App from './App.vue';
+import router from './router';
 
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
+// Глобальный обработчик ошибок для отладки
+window.addEventListener('error', (event) => {
+    console.error('🔥 Глобальная ошибка:', event.error);
+    console.error('Компонент:', event.error?.component);
+    console.error('Трассировка:', event.error?.stack);
+});
 
-import App from './App.vue'
-import router from './router'
+// Перехват необработанных промисов
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('💥 Необработанный промис:', event.reason);
+});
 
-const app = createApp(App)
+const app = createApp(App);
 
-app.use(createPinia())
-app.use(router)
+// Конфигурация приложения
+app.config.errorHandler = (err, instance, info) => {
+    console.error('❌ Vue Error:', err);
+    console.error('Component:', instance);
+    console.error('Info:', info);
+};
 
-app.mount('#app')
+app.use(router);
+app.mount('#app');

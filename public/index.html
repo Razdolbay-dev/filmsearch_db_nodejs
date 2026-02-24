@@ -42,12 +42,12 @@
         <input type="checkbox" id="autoRefresh" checked onchange="toggleAutoRefresh()">
         Автообновление (каждые 10 сек)
     </label>
-    <span id="countdown"  style="visibility: hidden;"></span>
+    <span id="countdown" style="visibility: hidden;"></span>
 </div>
 
 <div id="jobs" style="margin-top: 20px;"></div>
 
-<div class="log" id="log">
+<div style="visibility: hidden;" class="log" id="log">
     <div>📋 Лог событий...</div>
 </div>
 
@@ -241,7 +241,9 @@
                         </div>
                     </div>
 
-
+                    <div class="progress-bar" style="margin-top: 10px;">
+                        <div class="progress-fill" style="width: ${job.progress || 0}%"></div>
+                    </div>
 
                     <div style="margin: 10px 0;">
                         Прогресс: <strong>${job.processed_items || 0}/${job.total_items || 0}</strong> (${job.progress || 0}%)
@@ -277,7 +279,7 @@
                         </div>
                     ` : ''}
 
-
+                   <!-- <div style="visibility: hidden;" class="last-update" id="update-${job.id}"></div>-->
                 </div>
             `}).join('');
     }
@@ -291,12 +293,12 @@
             if (fill) fill.style.width = `${update.percentage}%`;
         }
 
-        if (update.processed !== undefined && update.total !== undefined) {
-            const progressText = jobElement.querySelector('.progress-bar').nextSibling;
-            if (progressText) {
-                progressText.textContent = `Прогресс: ${update.processed}/${update.total} (${update.percentage}%)`;
-            }
-        }
+        // if (update.processed !== undefined && update.total !== undefined) {
+        //     const progressText = jobElement.querySelector('.progress-bar').nextSibling;
+        //     if (progressText) {
+        //         progressText.textContent = `Прогресс: ${update.processed}/${update.total} (${update.percentage}%)`;
+        //     }
+        // }
 
         if (update.stats) {
             const statsDiv = jobElement.querySelector('.stats');

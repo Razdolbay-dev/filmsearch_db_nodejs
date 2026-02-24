@@ -1,9 +1,9 @@
-import tmdbMovieService from '../services/movieService.js';
+import tmdbMovieService from '../services/movieTMDBService.js';
 
 /**
  * Контроллер для работы с фильмами
  */
-class MovieController {
+class MovieTMDBController {
     /**
      * Получить детали фильма с актерским составом
      */
@@ -279,5 +279,5 @@ class MovieController {
 }
 
 // Экспортируем экземпляр контроллера
-const movieController = new MovieController();
+const movieController = new MovieTMDBController();
 export default movieController;

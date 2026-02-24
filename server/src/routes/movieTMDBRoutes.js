@@ -1,5 +1,5 @@
 import express from 'express';
-import movieController from '../controllers/movieController.js';
+import movieController from '../controllers/movieTMDBController.js';
 import { validateMovieId, validateLanguage } from '../middleware/validation.js';
 
 const router = express.Router();
