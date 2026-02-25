@@ -6,17 +6,49 @@ class SeriesService {
     }
 
     // Получить все сериалы с пагинацией
+    // async getAllSeries(page = 1, limit = 20) {
+    //     const offset = (page - 1) * limit;
+    //
+    //     const [rows] = await this.pool.execute(
+    //         'SELECT * FROM tv_series ORDER BY popularity DESC LIMIT ? OFFSET ?',
+    //         [limit, offset]
+    //     );
+    //
+    //     const [total] = await this.pool.execute(
+    //         'SELECT COUNT(*) as count FROM tv_series'
+    //     );
+    //
+    //     return {
+    //         data: rows,
+    //         pagination: {
+    //             page,
+    //             limit,
+    //             total: total[0].count,
+    //             pages: Math.ceil(total[0].count / limit)
+    //         }
+    //     };
+    // }
+
     async getAllSeries(page = 1, limit = 20) {
         const offset = (page - 1) * limit;
 
-        const [rows] = await this.pool.execute(
-            'SELECT * FROM tv_series ORDER BY popularity DESC LIMIT ? OFFSET ?',
-            [limit, offset]
-        );
+        // Получаем отфильтрованные сериалы с пагинацией
+        const [rows] = await this.pool.execute(`
+        SELECT * FROM tv_series 
+        WHERE overview IS NOT NULL 
+        AND overview != '' 
+        AND name REGEXP '[а-яА-ЯёЁ]'
+        ORDER BY popularity DESC 
+        LIMIT ? OFFSET ?
+    `, [limit, offset]);
 
-        const [total] = await this.pool.execute(
-            'SELECT COUNT(*) as count FROM tv_series'
-        );
+        // Получаем общее количество отфильтрованных сериалов
+        const [total] = await this.pool.execute(`
+        SELECT COUNT(*) as count FROM tv_series 
+        WHERE overview IS NOT NULL 
+        AND overview != '' 
+        AND name REGEXP '[а-яА-ЯёЁ]'
+    `);
 
         return {
             data: rows,

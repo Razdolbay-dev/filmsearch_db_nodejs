@@ -9,18 +9,47 @@
     </button>
 
     <div class="flex space-x-1">
+      <!-- Первая страница -->
       <button
-          v-for="page in displayedPages"
+          v-if="shouldShowFirstPage"
+          @click="$emit('page-change', 1)"
+          :class="[
+            'w-10 h-10 rounded transition',
+            currentPage === 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'
+          ]"
+      >
+        1
+      </button>
+
+      <!-- Левое многоточие -->
+      <span v-if="showLeftDots" class="w-10 h-10 flex items-center justify-center">...</span>
+
+      <!-- Страницы вокруг текущей -->
+      <button
+          v-for="page in middlePages"
           :key="page"
           @click="$emit('page-change', page)"
           :class="[
-          'w-10 h-10 rounded transition',
-          currentPage === page
-            ? 'bg-blue-600 text-white'
-            : 'bg-gray-200 hover:bg-gray-300'
-        ]"
+            'w-10 h-10 rounded transition',
+            currentPage === page ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'
+          ]"
       >
         {{ page }}
+      </button>
+
+      <!-- Правое многоточие -->
+      <span v-if="showRightDots" class="w-10 h-10 flex items-center justify-center">...</span>
+
+      <!-- Последняя страница -->
+      <button
+          v-if="shouldShowLastPage"
+          @click="$emit('page-change', totalPages)"
+          :class="[
+            'w-10 h-10 rounded transition',
+            currentPage === totalPages ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'
+          ]"
+      >
+        {{ totalPages }}
       </button>
     </div>
 
@@ -50,30 +79,43 @@ const props = defineProps({
 
 defineEmits(['page-change']);
 
-const displayedPages = computed(() => {
-  const delta = 2;
-  const range = [];
-  const rangeWithDots = [];
-  let l;
+// Показывать первую страницу только если текущая страница не рядом с началом
+const shouldShowFirstPage = computed(() => {
+  return props.currentPage > 3;
+});
 
-  for (let i = 1; i <= props.totalPages; i++) {
-    if (i === 1 || i === props.totalPages || (i >= props.currentPage - delta && i <= props.currentPage + delta)) {
-      range.push(i);
-    }
+// Показывать последнюю страницу только если текущая страница не рядом с концом
+const shouldShowLastPage = computed(() => {
+  return props.currentPage < props.totalPages - 2;
+});
+
+// Показывать левое многоточие
+const showLeftDots = computed(() => {
+  return props.currentPage > 4;
+});
+
+// Показывать правое многоточие
+const showRightDots = computed(() => {
+  return props.currentPage < props.totalPages - 3;
+});
+
+// Страницы вокруг текущей (всегда 3 страницы: предыдущая, текущая, следующая)
+const middlePages = computed(() => {
+  const pages = [];
+
+  // Предыдущая страница (если существует)
+  if (props.currentPage > 1) {
+    pages.push(props.currentPage - 1);
   }
 
-  range.forEach((i) => {
-    if (l) {
-      if (i - l === 2) {
-        rangeWithDots.push(l + 1);
-      } else if (i - l !== 1) {
-        rangeWithDots.push('...');
-      }
-    }
-    rangeWithDots.push(i);
-    l = i;
-  });
+  // Текущая страница
+  pages.push(props.currentPage);
 
-  return rangeWithDots;
+  // Следующая страница (если существует)
+  if (props.currentPage < props.totalPages) {
+    pages.push(props.currentPage + 1);
+  }
+
+  return pages;
 });
 </script>

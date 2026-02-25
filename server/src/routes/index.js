@@ -7,6 +7,9 @@ import importRoutes from "./importRoutes.js";
 
 import tmdbMovieRoutes from "./movieTMDBRoutes.js";
 import tmdbSeriesRoutes from "./seriesTMDBRoutes.js";
+// Импортируем
+import cartoonsRoutes from './cartoonsRoutes.js';
+
 
 import movieRoutes from "./moviesRoutes.js";
 import seriesRoutes from "./seriesRoutes.js";
@@ -47,7 +50,7 @@ router.use('/tmdb_movies', tmdbMovieRoutes)
 router.use('/tmdb_series', tmdbSeriesRoutes)
 router.use('/movies', movieRoutes)
 router.use('/series', seriesRoutes)
-
+router.use('/cartoons', cartoonsRoutes);
 // Маршруты админки
 router.use('/admin', adminRoutes);
 

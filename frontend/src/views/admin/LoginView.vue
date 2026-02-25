@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 to-purple-600">
+  <div class="min-h-screen flex items-center justify-center">
     <div class="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full">
       <div class="text-center mb-8">
         <h1 class="text-3xl font-bold text-gray-900">Admin Panel</h1>

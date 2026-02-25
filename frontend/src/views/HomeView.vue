@@ -1,10 +1,10 @@
 <template>
   <div>
-    <!-- Hero секция -->
+    <!-- Hero секция
     <section class="text-center py-12 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg mb-12">
       <h1 class="text-5xl font-bold mb-4">TMDB Explorer</h1>
       <p class="text-xl opacity-90">Исследуйте мир кино и сериалов</p>
-    </section>
+    </section>-->
 
     <!-- Популярные фильмы -->
     <section class="mb-12">

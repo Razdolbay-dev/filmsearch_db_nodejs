@@ -6,17 +6,49 @@ class MoviesService {
     }
 
     // Получить все фильмы с пагинацией
+    // async getAllMovies(page = 1, limit = 20) {
+    //     const offset = (page - 1) * limit;
+    //
+    //     const [rows] = await this.pool.execute(
+    //         'SELECT * FROM movies ORDER BY release_date DESC LIMIT ? OFFSET ?',
+    //         [limit, offset]
+    //     );
+    //
+    //     const [total] = await this.pool.execute(
+    //         'SELECT COUNT(*) as count FROM movies'
+    //     );
+    //
+    //     return {
+    //         data: rows,
+    //         pagination: {
+    //             page,
+    //             limit,
+    //             total: total[0].count,
+    //             pages: Math.ceil(total[0].count / limit)
+    //         }
+    //     };
+    // }
+
     async getAllMovies(page = 1, limit = 20) {
         const offset = (page - 1) * limit;
 
-        const [rows] = await this.pool.execute(
-            'SELECT * FROM movies ORDER BY popularity DESC LIMIT ? OFFSET ?',
-            [limit, offset]
-        );
+        // Получаем отфильтрованные фильмы с пагинацией
+        const [rows] = await this.pool.execute(`
+        SELECT * FROM movies 
+        WHERE overview IS NOT NULL 
+        AND overview != '' 
+        AND title REGEXP '[а-яА-ЯёЁ]'
+        ORDER BY release_date DESC 
+        LIMIT ? OFFSET ?
+    `, [limit, offset]);
 
-        const [total] = await this.pool.execute(
-            'SELECT COUNT(*) as count FROM movies'
-        );
+        // Получаем общее количество отфильтрованных фильмов
+        const [total] = await this.pool.execute(`
+        SELECT COUNT(*) as count FROM movies 
+        WHERE overview IS NOT NULL 
+        AND overview != '' 
+        AND title REGEXP '[а-яА-ЯёЁ]'
+    `);
 
         return {
             data: rows,

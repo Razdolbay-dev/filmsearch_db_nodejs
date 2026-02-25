@@ -93,8 +93,8 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { apiClient } from '@/api/client';
-import MovieCard from '../components/MovieCard.vue';
-import Pagination from '../components/Pagination.vue';
+import MovieCard from '@/components/MovieCard.vue';
+import Pagination from '@/components/Pagination.vue';
 
 const props = defineProps({
   searchQuery: {

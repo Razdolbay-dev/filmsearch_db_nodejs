@@ -1,9 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import HomeView from '../views/HomeView.vue';
-import MoviesView from '../views/MoviesView.vue';
-import MovieDetailView from '../views/MovieDetailView.vue';
-import SeriesView from '../views/SeriesView.vue';
-import SeriesDetailView from '../views/SeriesDetailView.vue';
+import HomeView from '@/views/HomeView.vue';
+import MoviesView from '@/views/MoviesView.vue';
+import MovieDetailView from '@/views/MovieDetailView.vue';
+import SeriesView from '@/views/SeriesView.vue';
+import SeriesDetailView from '@/views/SeriesDetailView.vue';
+import CartoonsView from '@/views/CartoonsView.vue';
 import adminRoutes from './admin.routes';
 import {adminApi} from "@/api/admin.client.js";
 
@@ -16,7 +17,9 @@ const routes = [
   { path: '/series', component: SeriesView },
   { path: '/series/:id', component: SeriesDetailView },
   { path: '/series/search', component: SeriesView, props: (route) => ({ searchQuery: route.query.q }) },
-
+  { path: '/cartoons', component: CartoonsView },
+  { path: '/cartoons/search', component: CartoonsView, props: (route) => ({ searchQuery: route.query.q })
+  },
   // Маршруты админки
   ...adminRoutes,
 ];

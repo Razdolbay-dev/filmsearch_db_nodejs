@@ -7,6 +7,7 @@ export default [
     },
     {
         path: '/admin',
+        redirect: '/admin/dashboard', // Добавьте эту строку
         component: () => import('../components/admin/AdminLayout.vue'),
         meta: { requiresAdmin: true },
         children: [
@@ -32,7 +33,7 @@ export default [
                 meta: { requiresSuperAdmin: true }
             },
             {
-                path: 'sync',  // <-- НОВЫЙ МАРШРУТ
+                path: 'sync',
                 name: 'admin-sync',
                 component: () => import('../views/admin/SyncView.vue')
             }
