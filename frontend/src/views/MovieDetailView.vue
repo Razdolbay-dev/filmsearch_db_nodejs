@@ -29,7 +29,7 @@
       <div class="md:w-1/3">
         <img
             v-if="movie.poster_path"
-            :src="`https://image.tmdb.org/t/p/w500${movie.poster_path}`"
+            :src="`images/posters${movie.poster_path}`"
             :alt="movie.title"
             class="w-full rounded-lg shadow-lg"
             @error="handlePosterError"

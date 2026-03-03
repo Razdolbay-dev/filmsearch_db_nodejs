@@ -13,6 +13,7 @@ import { initWebSocket } from './src/websocket/index.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const frontendPath = join(__dirname, '../frontend/dist');
+const imagesPath = join(__dirname, 'src/img'); // Путь к папке с изображениями
 
 // Используем значения из конфигурации
 const HOST = config.app.host;
@@ -24,10 +25,10 @@ const corsOptions = {
         'http://10.1.0.46:5000',
         'http://192.168.1.97:5000',
         'http://localhost:5000',
-        'http://10.1.0.46:5173', // если используешь dev server
+        'http://10.1.0.46:5173',
         'http://localhost:5173'
     ],
-    credentials: true, // ОБЯЗАТЕЛЬНО для cookies
+    credentials: true,
     optionsSuccessStatus: 200
 };
 
@@ -41,7 +42,8 @@ app.use(cors());
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// Добавляем middleware для установки дополнительных заголовков
+
+// Middleware для установки дополнительных заголовков
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
@@ -63,17 +65,42 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Раздача статических файлов изображений
+// Постеры будут доступны по URL: /images/posters/имя_файла.jpg
+app.use('/images/posters', express.static(join(imagesPath, 'posters'), {
+    maxAge: '30d', // Кэширование на 30 дней
+    immutable: true, // Файлы не изменяются
+    setHeaders: (res, path) => {
+        res.set('Content-Type', 'image/jpeg');
+    }
+}));
+
+// Бэкдропы будут доступны по URL: /images/backdrops/имя_файла.jpg
+app.use('/images/backdrops', express.static(join(imagesPath, 'backdrops'), {
+    maxAge: '30d',
+    immutable: true,
+    setHeaders: (res, path) => {
+        res.set('Content-Type', 'image/jpeg');
+    }
+}));
+
+// Можно также добавить общий роут для всех изображений
+app.use('/images', express.static(imagesPath, {
+    maxAge: '30d',
+    immutable: true
+}));
+
 app.use('/api', indexRoutes);
 
 // Раздача статических файлов фронтенда
 app.use(express.static(frontendPath));
 
 // Все остальные маршруты отдаем index.html для SPA
-// **Специальные маршруты для SPA - ТОЛЬКО для не-API путей**
-// Это должен быть ПОСЛЕДНИЙ middleware
-// SPA маршруты
 app.use((req, res, next) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/health') || req.path.startsWith('/ws')) {
+    if (req.path.startsWith('/api') ||
+        req.path.startsWith('/health') ||
+        req.path.startsWith('/ws') ||
+        req.path.startsWith('/images')) { // Добавляем исключение для images
         return next();
     }
 
@@ -116,6 +143,9 @@ server.listen(PORT, HOST, () => {
    TMDB API: ${config.tmdb.apiKey ? '✓ Configured' : '✗ Not configured'}
    Proxy: ${config.proxy.enabled ? '✓ Enabled' : '✗ Disabled'}
    📡 WebSocket endpoint: ws://${HOST}:${PORT}/ws/sync
+   🖼️ Images endpoints:
+      Posters: http://${HOST}:${PORT}/images/posters/
+      Backdrops: http://${HOST}:${PORT}/images/backdrops/
     `);
 });
 

@@ -24,7 +24,7 @@
       <div class="md:w-1/3">
         <img
             v-if="series.poster_path"
-            :src="`https://image.tmdb.org/t/p/w500${series.poster_path}`"
+            :src="`images/posters${series.poster_path}`"
             :alt="series.name"
             class="w-full rounded-lg shadow-lg"
             @error="handlePosterError"

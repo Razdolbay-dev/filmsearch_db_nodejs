@@ -4,7 +4,7 @@
       <!-- Постер -->
       <img
           v-if="cartoon.poster_path"
-          :src="`https://image.tmdb.org/t/p/w500${cartoon.poster_path}`"
+          :src="`images/posters${cartoon.poster_path}`"
           :alt="cartoon.title"
           class="absolute inset-0 w-full h-full object-cover"
           @error="handleImageError"

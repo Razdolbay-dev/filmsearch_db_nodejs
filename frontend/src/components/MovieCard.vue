@@ -3,7 +3,7 @@
     <div class="relative pb-[150%] bg-gray-200">
       <img
           v-if="movie.poster_path"
-          :src="`https://image.tmdb.org/t/p/w500${movie.poster_path}`"
+          :src="`images/posters${movie.poster_path}`"
           :alt="movie.title"
           class="absolute inset-0 w-full h-full object-cover"
           @error="handleImageError"
