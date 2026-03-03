@@ -21,7 +21,7 @@
       </div>
 
       <!-- Бейдж типа (фильм/сериал) -->
-      <div class="absolute top-2 left-2" :class="typeBadgeClass">
+      <div class="absolute top-2 left-2 rounded-lg" :class="typeBadgeClass">
         <span class="text-white text-xs font-bold px-2 py-1 rounded">
           {{ cartoon.type === 'movie' ? '🎬 Фильм' : '📺 Сериал' }}
         </span>
@@ -40,7 +40,7 @@
       <!-- Год и тип -->
       <div class="flex justify-between items-center mb-2">
         <p class="text-gray-600 text-sm">{{ cartoon.year || 'N/A' }}</p>
-        <p v-if="cartoon.type === 'series'" class="text-gray-600 text-xs">
+        <p v-if="cartoon.type === 'series'" class="text-gray-600 text-xs rounded-lg">
           {{ cartoon.seasons }} {{ pluralize('сезон', cartoon.seasons) }}
         </p>
       </div>
@@ -51,7 +51,7 @@
       <!-- Кнопка -->
       <button
           @click="$emit('view-details', cartoon.id, cartoon.type)"
-          class="mt-4 w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded transition-colors"
+          class="mt-4 w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
       >
         Подробнее
       </button>

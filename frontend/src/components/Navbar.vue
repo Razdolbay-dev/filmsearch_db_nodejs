@@ -3,7 +3,7 @@
     <div class="container mx-auto px-4">
       <div class="flex justify-between items-center h-16">
         <!-- Логотип -->
-        <router-link to="/" class="text-xl font-bold hover:text-blue-400 transition">
+        <router-link to="/" class="text-xl font-bold hover:text-green-400 transition">
           KinoSHka
         </router-link>
 
@@ -11,8 +11,8 @@
         <div class="hidden md:flex items-center space-x-6">
           <router-link
               to="/movies"
-              class="hover:text-blue-400 transition"
-              :class="{ 'text-blue-400': $route.path.startsWith('/movies') }"
+              class="hover:text-red-400 transition"
+              :class="{ 'text-red-400': $route.path.startsWith('/movies') }"
           >
             Фильмы
           </router-link>

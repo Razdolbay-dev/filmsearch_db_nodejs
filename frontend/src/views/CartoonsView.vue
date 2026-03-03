@@ -68,7 +68,7 @@
     </div>
 
     <!-- Статистика -->
-    <div v-if="stats && !loading" class="mb-4 text-sm text-gray-600">
+    <div v-if="stats && !loading" class="mb-4 text-sm text-gray-600 invisible">
       Найдено: {{ stats.movies }} фильмов и {{ stats.series }} сериалов
     </div>
 

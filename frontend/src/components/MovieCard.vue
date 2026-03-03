@@ -48,7 +48,7 @@ defineEmits(['view-details']);
 
 // Форматируем рейтинг с проверкой типа
 const formattedVoteAverage = computed(() => {
-  if (!props.movie.vote_average && props.movie.vote_average !== 0) return 'N/A';
+  if (!props.movie.vote_average && props.movie.vote_average !== 0) return props.movie.vote_average;
 
   // Преобразуем в число, если это строка
   const voteAverage = parseFloat(props.movie.vote_average);

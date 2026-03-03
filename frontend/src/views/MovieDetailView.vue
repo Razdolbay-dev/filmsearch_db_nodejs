@@ -4,7 +4,7 @@
   </div>
 
   <div v-else-if="movie" class="max-w-6xl mx-auto">
-    <!-- Бэкдроп -->
+    <!-- Бэкдроп
     <div
         v-if="movie.backdrop_path"
         class="relative h-96 rounded-lg overflow-hidden mb-8"
@@ -15,8 +15,13 @@
           class="w-full h-full object-cover"
           @error="handleBackdropError"
       />
-      <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
-    </div>
+
+      <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent">
+
+
+      </div>
+
+    </div> -->
 
     <!-- Основная информация -->
     <div class="flex flex-col md:flex-row gap-8">
@@ -32,11 +37,17 @@
         <div v-else class="w-full aspect-[2/3] bg-gray-200 rounded-lg flex items-center justify-center">
           <span class="text-gray-400">Нет постера</span>
         </div>
+        <button
+            class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors"
+        >
+          СМОТРЕТЬ
+        </button>
       </div>
 
       <!-- Детали -->
       <div class="md:w-2/3">
         <h1 class="text-4xl font-bold mb-2">{{ movie.title }}</h1>
+        <p class="text-gray-600 text-lg mb-4">{{ movie.original_title }}</p>
         <p v-if="movie.tagline" class="text-gray-600 text-lg mb-4">{{ movie.tagline }}</p>
 
         <div class="flex flex-wrap gap-4 mb-6">
@@ -48,6 +59,11 @@
           </span>
           <span class="px-3 py-1 bg-gray-200 rounded-full">
             {{ formatRuntime(movie.runtime) }}
+          </span>
+          <span class="px-3 py-1 ">
+            IMDB: <span class="px-3 py-1 bg-gray-200 rounded-full">
+            {{ movie.imdb_id }}
+            </span>
           </span>
           <span v-if="movie.adult" class="px-3 py-1 bg-red-200 text-red-800 rounded-full">
             18+
@@ -97,6 +113,8 @@
             <h3 class="font-semibold mb-2">Сборы</h3>
             <p class="text-gray-600">{{ formatCurrency(movie.revenue) }}</p>
           </div>
+
+
         </div>
 
         <div v-if="movie.homepage" class="mb-6">
@@ -111,6 +129,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </a>
+
         </div>
 
         <!-- Отладка (только в разработке) -->

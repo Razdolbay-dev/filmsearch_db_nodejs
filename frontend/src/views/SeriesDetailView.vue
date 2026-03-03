@@ -4,7 +4,7 @@
   </div>
 
   <div v-else-if="series" class="max-w-6xl mx-auto">
-    <!-- Бэкдроп -->
+    <!-- Бэкдроп
     <div
         v-if="series.backdrop_path"
         class="relative h-96 rounded-lg overflow-hidden mb-8"
@@ -16,7 +16,7 @@
           @error="handleBackdropError"
       />
       <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
-    </div>
+    </div> -->
 
     <!-- Основная информация -->
     <div class="flex flex-col md:flex-row gap-8">
@@ -124,7 +124,7 @@
           </a>
         </div>
 
-        <!-- Сезоны -->
+        <!-- Сезоны
         <div v-if="seasons.length" class="mt-8">
           <h2 class="text-2xl font-bold mb-4">Сезоны</h2>
           <div class="space-y-4">
@@ -185,7 +185,7 @@
               </div>
             </div>
           </div>
-        </div>
+        </div>-->
 
         <!-- Отладка (только в разработке) -->
         <div v-if="showDebug" class="mt-8 p-4 bg-gray-100 rounded-lg">
