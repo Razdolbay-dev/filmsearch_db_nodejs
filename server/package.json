@@ -4,7 +4,7 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "dev": "nodemon app.js",
+    "dev": "nodemon --legacy-watch --ignore 'src/img/' --ignore '../frontend/dist/' app.js",
     "start": "node app.js",
     "import:movie": "node src/scripts/importMovie.js",
     "import:tv": "node src/scripts/importTvSeries.js",

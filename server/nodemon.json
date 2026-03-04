@@ -1,0 +1,19 @@
+{
+  "watch": [
+    "src/",
+    "app.js"
+  ],
+  "ignore": [
+    "src/img/*",
+    "src/img/**/*",
+    "../frontend/dist/*",
+    "../frontend/dist/**/*",
+    "node_modules/*",
+    ".git"
+  ],
+  "ext": "js,mjs,json",
+  "verbose": false,
+  "quiet": true,
+  "legacyWatch": false,
+  "delay": 1000
+}
