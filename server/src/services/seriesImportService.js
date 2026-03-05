@@ -133,8 +133,8 @@ export class SeriesImportService {
                 id, name, original_name, overview, status, type, adult,
                 backdrop_path, poster_path, homepage, tagline, original_language,
                 first_air_date, last_air_date, in_production, number_of_episodes,
-                number_of_seasons, popularity, vote_average, vote_count
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                number_of_seasons, popularity, vote_average, vote_count, published
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const values = [
@@ -157,7 +157,8 @@ export class SeriesImportService {
             data.number_of_seasons || 0,
             data.popularity || 0,
             data.vote_average || 0,
-            data.vote_count || 0
+            data.vote_count || 0,
+            true // published всегда true (1)
         ];
 
         await conn.query(sql, values);

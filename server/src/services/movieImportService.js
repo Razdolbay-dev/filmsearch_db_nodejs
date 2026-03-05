@@ -171,8 +171,8 @@ export class MovieImportService {
                 id, adult, backdrop_path, budget, homepage, imdb_id,
                 original_language, original_title, overview, popularity,
                 poster_path, release_date, revenue, runtime, status,
-                tagline, title, video, vote_average, vote_count
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                tagline, title, video, vote_average, vote_count, published
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 adult = VALUES(adult),
                 backdrop_path = VALUES(backdrop_path),
@@ -192,7 +192,8 @@ export class MovieImportService {
                 title = VALUES(title),
                 video = VALUES(video),
                 vote_average = VALUES(vote_average),
-                vote_count = VALUES(vote_count)
+                vote_count = VALUES(vote_count),
+                published = VALUES(published)
         `;
 
         const values = [
@@ -215,7 +216,8 @@ export class MovieImportService {
             movieData.title || null,
             movieData.video || false,
             movieData.vote_average || 0,
-            movieData.vote_count || 0
+            movieData.vote_count || 0,
+            true // published всегда true (опубликовано)
         ];
 
         await connection.execute(query, values);
