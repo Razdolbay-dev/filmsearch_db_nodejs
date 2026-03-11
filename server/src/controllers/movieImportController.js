@@ -6,7 +6,7 @@ export class MovieImportController {
     async getMovieInfo(req, res) {
         try {
             const movieId = parseInt(req.params.id);
-            console.log(`Запроше фильм с id : ${movieId}`)
+            console.log(`Запрошен фильм с id : ${movieId}`)
             const movieInfo = await movieImportService.getMovieInfo(movieId);
 
             if (movieInfo) {

@@ -38,6 +38,7 @@ class MoviesService {
         WHERE overview IS NOT NULL 
         AND overview != '' 
         AND title REGEXP '[а-яА-ЯёЁ]'
+        AND published = 1
         ORDER BY release_date DESC 
         LIMIT ? OFFSET ?
     `, [limit, offset]);
@@ -48,6 +49,7 @@ class MoviesService {
         WHERE overview IS NOT NULL 
         AND overview != '' 
         AND title REGEXP '[а-яА-ЯёЁ]'
+        AND published = 1
     `);
 
         return {

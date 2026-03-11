@@ -288,66 +288,243 @@ export async function startSyncJob(jobId, type = 'movies', filters = {}) {
 /**
  * Получение ID для синхронизации из таблиц экспорта
  */
+// async function getItemsToSync(connection, type, filters) {
+//     console.log(`🔍 getItemsToSync: type=${type}, filters=`, filters);
+//
+//     const table = type === 'movies' ? 'tmdb_export_movies' : 'tmdb_export_tv';
+//     const popularityField = 'popularity';
+//     const nameField = type === 'movies' ? 'original_title' : 'original_name';
+//
+//     try {
+//         // Берём самую свежую дату экспорта
+//         const [latestDate] = await connection.execute(`
+//             SELECT MAX(export_date) as max_date FROM ${table}
+//         `);
+//
+//         if (!latestDate || latestDate.length === 0 || !latestDate[0].max_date) {
+//             console.log(`⚠️ Нет данных в таблице ${table}`);
+//             return [];
+//         }
+//
+//         const exportDate = latestDate[0].max_date;
+//         console.log(`📅 Последняя дата экспорта: ${exportDate}`);
+//
+//         // Базовый запрос: популярные и не импортированные
+//         let query = `
+//             SELECT tmdb_id, ${nameField} as title, ${popularityField} as popularity
+//             FROM ${table}
+//             WHERE export_date = ?
+//             AND ${popularityField} > ?
+//         `;
+//
+//         const params = [exportDate, filters.popularity || 1.0];
+//
+//         if (type === 'movies' && filters.adult === false) {
+//             query += ` AND adult = 0`;
+//         }
+//
+//         // Исключаем уже импортированные
+//         query += ` AND tmdb_id NOT IN (
+//             SELECT id FROM ${type === 'movies' ? 'movies' : 'tv_series'}
+//             WHERE id IS NOT NULL
+//         )`;
+//
+//         query += ` ORDER BY ${popularityField} DESC`;
+//
+//         /**
+//         if (filters.limit) {
+//             query += ` LIMIT ?`;
+//             params.push(parseInt(filters.limit));
+//         }
+//         */
+//
+//         console.log(`📝 SQL запрос:`, query);
+//         console.log(`📝 Параметры:`, params);
+//
+//         const [items] = await connection.execute(query, params);
+//         console.log(`✅ Найдено ${items.length} элементов в таблице ${table}`);
+//
+//         return items;
+//
+//     } catch (error) {
+//         console.error(`❌ Ошибка получения элементов из ${table}:`, error);
+//         throw error;
+//     }
+// }
+
+/**
+ * Получение ID для синхронизации из таблиц экспорта
+ * Объединяет: новые ID из экспорта + существующие ID требующие обновления
+ */
+// async function getItemsToSync(connection, type, filters) {
+//     console.log(`🔍 getItemsToSync: type=${type}, filters=`, filters);
+//
+//     const exportTable = type === 'movies' ? 'tmdb_export_movies' : 'tmdb_export_tv';
+//     const mainTable = type === 'movies' ? 'movies' : 'tv_series';
+//     const titleField = type === 'movies' ? 'title' : 'name';
+//     const popularityField = 'popularity';
+//     const nameField = type === 'movies' ? 'original_title' : 'original_name';
+//
+//     try {
+//         // 1. Получаем ID из экспорта с популярностью > порога
+//         let exportQuery = `
+//             SELECT tmdb_id, ${nameField} as title, ${popularityField} as popularity
+//             FROM ${exportTable}
+//             WHERE ${popularityField} > ?
+//         `;
+//         const exportParams = [filters.popularity || 1.0];
+//
+//         if (type === 'movies' && filters.adult === false) {
+//             exportQuery += ` AND adult = 0`;
+//         }
+//
+//         // Сортировка по популярности
+//         exportQuery += ` ORDER BY ${popularityField} DESC`;
+//
+//         console.log(`📝 Экспорт запрос:`, exportQuery);
+//         console.log(`📝 Параметры:`, exportParams);
+//
+//         const [exportItems] = await connection.execute(exportQuery, exportParams);
+//         console.log(`📊 В экспорте с популярностью > ${filters.popularity || 1.0}: ${exportItems.length} элементов`);
+//
+//         if (exportItems.length === 0) {
+//             return [];
+//         }
+//
+//         // 2. Получаем ID из основной таблицы, которые нужно обновить
+//         // (уже есть в БД, но нет описания и название не на кириллице)
+//         const [existingItemsToUpdate] = await connection.execute(`
+//             SELECT id
+//             FROM ${mainTable}
+//             WHERE overview IS NULL
+//               AND ${titleField} IS NOT NULL
+//               AND ${titleField} != ''
+//               AND ${titleField} NOT REGEXP '[а-яА-ЯёЁ]'
+//         `);
+//
+//         const existingIdsToUpdate = new Set(existingItemsToUpdate.map(item => item.id));
+//         console.log(`📊 В основной таблице требуют обновления: ${existingIdsToUpdate.size} ID`);
+//
+//         // 3. Разделяем элементы экспорта на новые и на обновление
+//         const newItems = [];
+//         const updateItems = [];
+//
+//         for (const item of exportItems) {
+//             if (existingIdsToUpdate.has(item.tmdb_id)) {
+//                 updateItems.push(item);
+//             } else {
+//                 // Проверяем, нет ли уже в основной таблице (новые)
+//                 const [exists] = await connection.execute(
+//                     `SELECT id FROM ${mainTable} WHERE id = ?`,
+//                     [item.tmdb_id]
+//                 );
+//
+//                 if (exists.length === 0) {
+//                     newItems.push(item);
+//                 }
+//             }
+//         }
+//
+//         console.log(`🆕 Новых ID для импорта: ${newItems.length}`);
+//         console.log(`🔄 Существующих ID для обновления: ${updateItems.length}`);
+//
+//         // 4. Объединяем и сортируем
+//         // const itemsToSync = [...newItems, ...updateItems].sort((a, b) => b.popularity - a.popularity);
+//
+//         // 5. Применяем лимит если нужно
+//         // const result = filters.limit ? itemsToSync.slice(0, filters.limit) : itemsToSync;
+//
+//         const result = [...newItems, ...updateItems].sort((a, b) => b.popularity - a.popularity);
+//         console.log(`✅ ИТОГО: ${result.length} элементов для синхронизации`);
+//
+//         return result;
+//
+//     } catch (error) {
+//         console.error(`❌ Ошибка получения элементов из ${exportTable}:`, error);
+//         throw error;
+//     }
+// }
+
 async function getItemsToSync(connection, type, filters) {
     console.log(`🔍 getItemsToSync: type=${type}, filters=`, filters);
 
-    const table = type === 'movies' ? 'tmdb_export_movies' : 'tmdb_export_tv';
+    const exportTable = type === 'movies' ? 'tmdb_export_movies' : 'tmdb_export_tv';
+    const mainTable = type === 'movies' ? 'movies' : 'tv_series';
+    const titleField = type === 'movies' ? 'title' : 'name';
     const popularityField = 'popularity';
     const nameField = type === 'movies' ? 'original_title' : 'original_name';
 
     try {
-        // Берём самую свежую дату экспорта
-        const [latestDate] = await connection.execute(`
-            SELECT MAX(export_date) as max_date FROM ${table}
-        `);
+        // 1. Получаем ID из экспорта с популярностью > порога
+        let exportQuery = `
+            SELECT tmdb_id, ${nameField} as title, ${popularityField} as popularity
+            FROM ${exportTable}
+            WHERE ${popularityField} > ?
+        `;
+        const exportParams = [filters.popularity || 1.0];
 
-        if (!latestDate || latestDate.length === 0 || !latestDate[0].max_date) {
-            console.log(`⚠️ Нет данных в таблице ${table}`);
+        if (type === 'movies' && filters.adult === false) {
+            exportQuery += ` AND adult = 0`;
+        }
+
+        exportQuery += ` ORDER BY ${popularityField} DESC`;
+
+        const [exportItems] = await connection.execute(exportQuery, exportParams);
+        console.log(`📊 В экспорте: ${exportItems.length} элементов`);
+
+        if (exportItems.length === 0) {
             return [];
         }
 
-        const exportDate = latestDate[0].max_date;
-        console.log(`📅 Последняя дата экспорта: ${exportDate}`);
+        // 2. Получаем ID для обновления с учетом даты
+        const updateThreshold = filters.daysThreshold || 7; // По умолчанию обновляем раз в 7 дней
 
-        // Базовый запрос: популярные и не импортированные
-        let query = `
-            SELECT tmdb_id, ${nameField} as title, ${popularityField} as popularity
-            FROM ${table}
-            WHERE export_date = ?
-            AND ${popularityField} > ?
-        `;
+        const [itemsToUpdate] = await connection.execute(`
+            SELECT id, updated_at
+            FROM ${mainTable}
+            WHERE overview IS NULL 
+              AND ${titleField} IS NOT NULL 
+              AND ${titleField} != '' 
+              AND ${titleField} NOT REGEXP '[а-яА-ЯёЁ]'
+              AND (
+                  updated_at IS NULL 
+                  OR updated_at < DATE_SUB(NOW(), INTERVAL ? DAY)
+              )
+        `, [updateThreshold]);
 
-        const params = [exportDate, filters.popularity || 1.0];
+        const updateIds = new Set(itemsToUpdate.map(item => item.id));
+        console.log(`📊 Требуют обновления (не обновлялись ${updateThreshold}+ дней): ${updateIds.size} ID`);
 
-        if (type === 'movies' && filters.adult === false) {
-            query += ` AND adult = 0`;
+        // 3. Разделяем элементы
+        const newItems = [];
+        const updateItems = [];
+
+        for (const item of exportItems) {
+            if (updateIds.has(item.tmdb_id)) {
+                updateItems.push(item);
+            } else {
+                const [exists] = await connection.execute(
+                    `SELECT id FROM ${mainTable} WHERE id = ?`,
+                    [item.tmdb_id]
+                );
+
+                if (exists.length === 0) {
+                    newItems.push(item);
+                }
+            }
         }
 
-        // Исключаем уже импортированные
-        query += ` AND tmdb_id NOT IN (
-            SELECT id FROM ${type === 'movies' ? 'movies' : 'tv_series'} 
-            WHERE id IS NOT NULL
-        )`;
+        console.log(`🆕 Новых: ${newItems.length}, 🔄 На обновление: ${updateItems.length}`);
 
-        query += ` ORDER BY ${popularityField} DESC`;
+        // const itemsToSync = [...newItems, ...updateItems].sort((a, b) => b.popularity - a.popularity);
+        // const result = filters.limit ? itemsToSync.slice(0, filters.limit) : itemsToSync;
+        const result = [...newItems, ...updateItems].sort((a, b) => b.popularity - a.popularity);
+        console.log(`✅ ИТОГО: ${result.length} элементов`);
 
-        /**
-        if (filters.limit) {
-            query += ` LIMIT ?`;
-            params.push(parseInt(filters.limit));
-        }
-        */
-
-        console.log(`📝 SQL запрос:`, query);
-        console.log(`📝 Параметры:`, params);
-
-        const [items] = await connection.execute(query, params);
-        console.log(`✅ Найдено ${items.length} элементов в таблице ${table}`);
-
-        return items;
+        return result;
 
     } catch (error) {
-        console.error(`❌ Ошибка получения элементов из ${table}:`, error);
+        console.error(`❌ Ошибка:`, error);
         throw error;
     }
 }

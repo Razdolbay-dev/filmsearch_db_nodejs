@@ -38,11 +38,199 @@ export class MovieImportService {
         await conn.rollback();
     }
 
+    // async fetchAndStoreMovie(movieId) {
+    //     let connection = null;
+    //
+    //     try {
+    //         console.log(`Запрашиваю данные фильма с ID: ${movieId}...`);
+    //
+    //         // Получаем данные фильма
+    //         const response = await axios.get(`${API_BASE_URL}/${movieId}`);
+    //
+    //         if (!response.data.success) {
+    //             throw new Error(`API вернуло ошибку: ${JSON.stringify(response.data)}`);
+    //         }
+    //
+    //         const movieData = response.data.data;
+    //         const metadata = response.data.metadata;
+    //
+    //         // Проверка статуса и даты релиза
+    //         if (movieData.status !== 'Released') {
+    //             console.log(`❌ Фильм имеет статус "${movieData.status}", а не "Released". Импорт отменен.`);
+    //             return {
+    //                 success: false,
+    //                 skipped: true,  // <-- добавить
+    //                 movieId: movieId,
+    //                 status: movieData.status,
+    //                 reason: `Фильм не выпущен (статус: ${movieData.status})`
+    //             };
+    //         }
+    //
+    //         // Проверяем, что дата релиза не в будущем
+    //         if (movieData.release_date) {
+    //             const releaseDate = new Date(movieData.release_date);
+    //             const currentDate = new Date();
+    //
+    //             if (releaseDate > currentDate) {
+    //                 console.log(`❌ Дата релиза ${movieData.release_date} еще не наступила. Импорт отменен.`);
+    //                 return {
+    //                     success: false,
+    //                     movieId: movieId,
+    //                     releaseDate: movieData.release_date,
+    //                     currentDate: currentDate.toISOString().split('T')[0],
+    //                     reason: `Дата релиза еще не наступила`
+    //                 };
+    //             }
+    //         }
+    //
+    //         console.log(`Фильм получен: ${movieData.title}`);
+    //
+    //         // Получаем соединение
+    //         connection = await this.connect();
+    //         console.log('Подключение к базе данных установлено');
+    //
+    //         // Начинаем транзакцию
+    //         await this.beginTransaction();
+    //         console.log('Транзакция начата');
+    //
+    //         // 1. Вставляем основной фильм
+    //         console.log('Добавляю основную информацию о фильме...');
+    //         await this.insertMovie(movieData, metadata);
+    //
+    //         // 2. Вставляем и связываем жанры
+    //         if (movieData.genres && movieData.genres.length > 0) {
+    //             console.log('Добавляю жанры...');
+    //             await this.insertGenres(movieData.genres);
+    //             await this.linkMovieGenres(movieId, movieData.genres);
+    //         }
+    //
+    //         // 3. Вставляем и связываем компании
+    //         if (movieData.production_companies && movieData.production_companies.length > 0) {
+    //             console.log('Добавляю производственные компании...');
+    //             await this.insertProductionCompanies(movieData.production_companies);
+    //             await this.linkMovieCompanies(movieId, movieData.production_companies);
+    //         }
+    //
+    //         // 4. Вставляем и связываем страны
+    //         if (movieData.production_countries && movieData.production_countries.length > 0) {
+    //             console.log('Добавляю страны производства...');
+    //             await this.insertProductionCountries(movieData.production_countries);
+    //             await this.linkMovieCountries(movieId, movieData.production_countries);
+    //         }
+    //
+    //         // 5. Вставляем и связываем языки
+    //         if (movieData.spoken_languages && movieData.spoken_languages.length > 0) {
+    //             console.log('Добавляю языки...');
+    //             await this.insertSpokenLanguages(movieData.spoken_languages);
+    //             await this.linkMovieLanguages(movieId, movieData.spoken_languages);
+    //         }
+    //
+    //         // Фиксируем транзакцию
+    //         await this.commit();
+    //         console.log('✅ Все данные успешно сохранены в базе данных!');
+    //
+    //         return {
+    //             success: true,
+    //             movieId: movieId,
+    //             title: movieData.title,
+    //             message: 'Фильм успешно импортирован'
+    //         };
+    //
+    //     } catch (error) {
+    //         // Откатываем транзакцию в случае ошибки
+    //         if (this.connection) {
+    //             await this.rollback();
+    //         }
+    //
+    //         console.error('❌ Ошибка:', error.message);
+    //
+    //         if (error.response) {
+    //             console.error('Статус ошибки:', error.response.status);
+    //             console.error('Данные ошибки:', error.response.data);
+    //         }
+    //
+    //         return {
+    //             success: false,
+    //             movieId: movieId,
+    //             error: error.message,
+    //             status: error.response?.status
+    //         };
+    //
+    //     } finally {
+    //         // Закрываем соединение
+    //         if (connection) {
+    //             await this.disconnect();
+    //             console.log('Соединение с базой данных закрыто');
+    //         }
+    //     }
+    // }
+    /**
+     * Проверяет, нужно ли обновлять фильм
+     */
+    async needsUpdate(movieId, newData) {
+        const connection = await this.connect();
+
+        // Получаем текущие данные из БД
+        const [rows] = await connection.execute(
+            `SELECT overview, title, original_title, popularity, vote_average, vote_count, 
+                release_date, status, tagline, poster_path, backdrop_path
+         FROM movies WHERE id = ?`,
+            [movieId]
+        );
+
+        if (rows.length === 0) return true; // Записи нет - нужно вставить
+
+        const current = rows[0];
+
+        // Критичные поля, изменения которых требуют обновления
+        const criticalChanges = [
+            // overview был пустой, а теперь есть (наше основное условие)
+            (!current.overview || current.overview === '') && newData.overview,
+
+            // Изменилось название (особенно важно для проверки кириллицы)
+            current.title !== newData.title,
+            current.original_title !== newData.original_title,
+
+            // Статус изменился (например, был Planned, стал Released)
+            current.status !== newData.status,
+
+            // Дата релиза изменилась
+            current.release_date !== newData.release_date
+        ];
+
+        // Если есть критические изменения - обновляем
+        if (criticalChanges.some(change => change === true)) {
+            console.log(`🔄 Критические изменения для фильма ID: ${movieId}`);
+            return true;
+        }
+
+        // Второстепенные поля - обновляем только при значительных изменениях
+        const significantChanges = [
+            Math.abs(current.popularity - (newData.popularity || 0)) > 0.5,
+            Math.abs(current.vote_average - (newData.vote_average || 0)) > 0.1,
+            current.vote_count !== newData.vote_count,
+            current.poster_path !== newData.poster_path,
+            current.backdrop_path !== newData.backdrop_path,
+            current.tagline !== newData.tagline
+        ];
+
+        const needsUpdate = significantChanges.some(change => change === true);
+
+        if (needsUpdate) {
+            console.log(`📊 Значительные изменения метрик для фильма ID: ${movieId}`);
+        }
+
+        return needsUpdate;
+    }
+
+    /**
+     * Основной метод импорта фильма по ID
+     */
     async fetchAndStoreMovie(movieId) {
         let connection = null;
 
         try {
-            console.log(`Запрашиваю данные фильма с ID: ${movieId}...`);
+            console.log(`🔍 Запрашиваю данные фильма с ID: ${movieId}...`);
 
             // Получаем данные фильма
             const response = await axios.get(`${API_BASE_URL}/${movieId}`);
@@ -56,9 +244,10 @@ export class MovieImportService {
 
             // Проверка статуса и даты релиза
             if (movieData.status !== 'Released') {
-                console.log(`❌ Фильм имеет статус "${movieData.status}", а не "Released". Импорт отменен.`);
+                console.log(`⏭️ Фильм ID: ${movieId} имеет статус "${movieData.status}", а не "Released". Пропускаем.`);
                 return {
                     success: false,
+                    skipped: true,
                     movieId: movieId,
                     status: movieData.status,
                     reason: `Фильм не выпущен (статус: ${movieData.status})`
@@ -71,9 +260,10 @@ export class MovieImportService {
                 const currentDate = new Date();
 
                 if (releaseDate > currentDate) {
-                    console.log(`❌ Дата релиза ${movieData.release_date} еще не наступила. Импорт отменен.`);
+                    console.log(`⏭️ Дата релиза ${movieData.release_date} еще не наступила. Пропускаем.`);
                     return {
                         success: false,
+                        skipped: true,
                         movieId: movieId,
                         releaseDate: movieData.release_date,
                         currentDate: currentDate.toISOString().split('T')[0],
@@ -82,51 +272,66 @@ export class MovieImportService {
                 }
             }
 
-            console.log(`Фильм получен: ${movieData.title}`);
+            console.log(`✅ Фильм получен: ${movieData.title}`);
 
             // Получаем соединение
             connection = await this.connect();
-            console.log('Подключение к базе данных установлено');
+
+            // *** НОВАЯ ЛОГИКА: Проверяем нужно ли обновление ***
+            const needsUpdate = await this.needsUpdate(movieId, movieData);
+
+            if (!needsUpdate) {
+                console.log(`⏭️ Фильм ID: ${movieId} не требует обновления (данные актуальны)`);
+                return {
+                    success: true,
+                    skipped: true,
+                    movieId: movieId,
+                    title: movieData.title,
+                    reason: 'Данные актуальны, обновление не требуется'
+                };
+            }
+
+            console.log(`🔄 Фильм ID: ${movieId} требует обновления...`);
 
             // Начинаем транзакцию
             await this.beginTransaction();
-            console.log('Транзакция начата');
+            console.log('📦 Транзакция начата');
 
-            // 1. Вставляем основной фильм
-            console.log('Добавляю основную информацию о фильме...');
+            // 1. Вставляем/обновляем основной фильм
+            console.log('💾 Сохраняю основную информацию о фильме...');
             await this.insertMovie(movieData, metadata);
 
             // 2. Вставляем и связываем жанры
             if (movieData.genres && movieData.genres.length > 0) {
-                console.log('Добавляю жанры...');
+                console.log('🏷️ Добавляю жанры...');
                 await this.insertGenres(movieData.genres);
                 await this.linkMovieGenres(movieId, movieData.genres);
             }
 
             // 3. Вставляем и связываем компании
             if (movieData.production_companies && movieData.production_companies.length > 0) {
-                console.log('Добавляю производственные компании...');
+                console.log('🏢 Добавляю производственные компании...');
                 await this.insertProductionCompanies(movieData.production_companies);
                 await this.linkMovieCompanies(movieId, movieData.production_companies);
             }
 
             // 4. Вставляем и связываем страны
             if (movieData.production_countries && movieData.production_countries.length > 0) {
-                console.log('Добавляю страны производства...');
+                console.log('🌍 Добавляю страны производства...');
                 await this.insertProductionCountries(movieData.production_countries);
                 await this.linkMovieCountries(movieId, movieData.production_countries);
             }
 
             // 5. Вставляем и связываем языки
             if (movieData.spoken_languages && movieData.spoken_languages.length > 0) {
-                console.log('Добавляю языки...');
+                console.log('🗣️ Добавляю языки...');
                 await this.insertSpokenLanguages(movieData.spoken_languages);
                 await this.linkMovieLanguages(movieId, movieData.spoken_languages);
             }
 
             // Фиксируем транзакцию
             await this.commit();
-            console.log('✅ Все данные успешно сохранены в базе данных!');
+            console.log(`✅ Фильм ID: ${movieId} "${movieData.title}" успешно импортирован!`);
 
             return {
                 success: true,
@@ -141,11 +346,10 @@ export class MovieImportService {
                 await this.rollback();
             }
 
-            console.error('❌ Ошибка:', error.message);
+            console.error(`❌ Ошибка импорта фильма ID: ${movieId}:`, error.message);
 
             if (error.response) {
-                console.error('Статус ошибки:', error.response.status);
-                console.error('Данные ошибки:', error.response.data);
+                console.error('📡 Статус ошибки API:', error.response.status);
             }
 
             return {
@@ -159,42 +363,55 @@ export class MovieImportService {
             // Закрываем соединение
             if (connection) {
                 await this.disconnect();
-                console.log('Соединение с базой данных закрыто');
             }
         }
     }
 
     async insertMovie(movieData, metadata) {
         const connection = await this.connect();
+
+        // Определяем published на лету
+        const hasOverview = movieData.overview && movieData.overview.trim() !== '';
+        const hasCyrillicTitle = movieData.title && /[а-яА-ЯёЁ]/.test(movieData.title);
+
+        // published = 1 только если есть описание И название на кириллице
+        const published = (hasOverview && hasCyrillicTitle) ? 1 : 0;
+
+        console.log(`📊 Для фильма ID: ${movieData.id} 
+        hasOverview: ${hasOverview}, 
+        hasCyrillicTitle: ${hasCyrillicTitle}, 
+        published: ${published}
+        ${published === 1 ? '✅ Будет показываться' : '❌ Будет скрыт'}`);
+
         const query = `
-            INSERT INTO movies (
-                id, adult, backdrop_path, budget, homepage, imdb_id,
-                original_language, original_title, overview, popularity,
-                poster_path, release_date, revenue, runtime, status,
-                tagline, title, video, vote_average, vote_count, published
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                adult = VALUES(adult),
-                backdrop_path = VALUES(backdrop_path),
-                budget = VALUES(budget),
-                homepage = VALUES(homepage),
-                imdb_id = VALUES(imdb_id),
-                original_language = VALUES(original_language),
-                original_title = VALUES(original_title),
-                overview = VALUES(overview),
-                popularity = VALUES(popularity),
-                poster_path = VALUES(poster_path),
-                release_date = VALUES(release_date),
-                revenue = VALUES(revenue),
-                runtime = VALUES(runtime),
-                status = VALUES(status),
-                tagline = VALUES(tagline),
-                title = VALUES(title),
-                video = VALUES(video),
-                vote_average = VALUES(vote_average),
-                vote_count = VALUES(vote_count),
-                published = VALUES(published)
-        `;
+        INSERT INTO movies (
+            id, adult, backdrop_path, budget, homepage, imdb_id,
+            original_language, original_title, overview, popularity,
+            poster_path, release_date, revenue, runtime, status,
+            tagline, title, video, vote_average, vote_count, published
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+            adult = VALUES(adult),
+            backdrop_path = VALUES(backdrop_path),
+            budget = VALUES(budget),
+            homepage = VALUES(homepage),
+            imdb_id = VALUES(imdb_id),
+            original_language = VALUES(original_language),
+            original_title = VALUES(original_title),
+            overview = VALUES(overview),
+            popularity = VALUES(popularity),
+            poster_path = VALUES(poster_path),
+            release_date = VALUES(release_date),
+            revenue = VALUES(revenue),
+            runtime = VALUES(runtime),
+            status = VALUES(status),
+            tagline = VALUES(tagline),
+            title = VALUES(title),
+            video = VALUES(video),
+            vote_average = VALUES(vote_average),
+            vote_count = VALUES(vote_count),
+            published = VALUES(published)
+    `;
 
         const values = [
             movieData.id,
@@ -217,7 +434,7 @@ export class MovieImportService {
             movieData.video || false,
             movieData.vote_average || 0,
             movieData.vote_count || 0,
-            true // published всегда true (опубликовано)
+            published // <-- динамически вычисленное значение
         ];
 
         await connection.execute(query, values);

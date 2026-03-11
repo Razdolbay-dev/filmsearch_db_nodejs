@@ -41,8 +41,113 @@ export class SeriesImportService {
     /**
      * Основной метод импорта сериала по ID
      */
+    // async importSeriesById(seriesId) {
+    //     try {
+    //         await this.beginTransaction();
+    //
+    //         // Получаем данные из API с эпизодами
+    //         const seriesData = await this.fetchSeriesDataWithEpisodes(seriesId);
+    //
+    //         if (!seriesData.success || !seriesData.data) {
+    //             throw new Error(`Не удалось получить данные для сериала ID: ${seriesId}`);
+    //         }
+    //
+    //         const data = seriesData.data;
+    //         const seriesInfo = data.seriesInfo;
+    //         const seasonsData = data.seasons;
+    //         const metadata = seriesData.metadata;
+    //
+    //         // Проверяем, существует ли уже сериал
+    //         const exists = await this.checkSeriesExists(seriesId);
+    //
+    //         if (exists) {
+    //             console.log(`Сериал ID: ${seriesId} уже существует, обновляем...`);
+    //             await this.updateSeries(seriesId, seriesInfo);
+    //         } else {
+    //             console.log(`Добавляем новый сериал ID: ${seriesId}...`);
+    //             await this.insertSeries(seriesInfo);
+    //         }
+    //
+    //         // Импортируем связанные данные
+    //         await this.importRelatedData(seriesId, seriesInfo, metadata);
+    //
+    //         // Импортируем сезоны с эпизодами
+    //         if (seasonsData && seasonsData.length > 0) {
+    //             await this.importSeasonsWithEpisodes(seriesId, seasonsData);
+    //         }
+    //
+    //         await this.commit();
+    //         console.log(`Сериал ID: ${seriesId} успешно импортирован`);
+    //
+    //         return {
+    //             success: true,
+    //             seriesId: seriesId,
+    //             title: data.seriesInfo.name,
+    //             message: `Сериал ${data.seriesInfo.name} успешно импортирован`
+    //         };
+    //
+    //     } catch (error) {
+    //         await this.rollback();
+    //         console.error(`Ошибка импорта сериала ID: ${seriesId}:`, error);
+    //         throw error;
+    //     } finally {
+    //         await this.disconnect();
+    //     }
+    // }
+    /**
+     * Проверяет, нужно ли обновлять сериал
+     */
+    async needsUpdate(seriesId, newData) {
+        const connection = await this.connect();
+
+        const [rows] = await connection.execute(
+            `SELECT overview, name, original_name, popularity, vote_average, vote_count,
+                status, first_air_date, last_air_date, poster_path, backdrop_path, tagline
+         FROM tv_series WHERE id = ?`,
+            [seriesId]
+        );
+
+        if (rows.length === 0) return true;
+
+        const current = rows[0];
+
+        // Критические изменения
+        const criticalChanges = [
+            (!current.overview || current.overview === '') && newData.overview,
+            current.name !== newData.name,
+            current.original_name !== newData.original_name,
+            current.status !== newData.status,
+            current.first_air_date !== newData.first_air_date,
+            current.last_air_date !== newData.last_air_date
+        ];
+
+        if (criticalChanges.some(change => change === true)) {
+            console.log(`🔄 Критические изменения для сериала ID: ${seriesId}`);
+            return true;
+        }
+
+        // Значительные изменения метрик
+        const significantChanges = [
+            Math.abs(current.popularity - (newData.popularity || 0)) > 0.5,
+            Math.abs(current.vote_average - (newData.vote_average || 0)) > 0.1,
+            current.vote_count !== newData.vote_count,
+            current.poster_path !== newData.poster_path,
+            current.backdrop_path !== newData.backdrop_path,
+            current.tagline !== newData.tagline
+        ];
+
+        return significantChanges.some(change => change === true);
+    }
+
+    /**
+     * Основной метод импорта сериала по ID
+     */
     async importSeriesById(seriesId) {
+        let connection = null;
+
         try {
+            console.log(`🔍 Запрашиваю данные сериала с ID: ${seriesId}...`);
+
             await this.beginTransaction();
 
             // Получаем данные из API с эпизодами
@@ -61,35 +166,59 @@ export class SeriesImportService {
             const exists = await this.checkSeriesExists(seriesId);
 
             if (exists) {
-                console.log(`Сериал ID: ${seriesId} уже существует, обновляем...`);
+                // *** НОВАЯ ЛОГИКА: Проверяем нужно ли обновление ***
+                const needsUpdate = await this.needsUpdate(seriesId, seriesInfo);
+
+                if (!needsUpdate) {
+                    console.log(`⏭️ Сериал ID: ${seriesId} не требует обновления (данные актуальны)`);
+                    await this.rollback(); // Отменяем транзакцию, т.к. обновление не нужно
+                    return {
+                        success: true,
+                        skipped: true,
+                        seriesId: seriesId,
+                        title: seriesInfo.name,
+                        reason: 'Данные актуальны, обновление не требуется'
+                    };
+                }
+
+                console.log(`🔄 Сериал ID: ${seriesId} уже существует, обновляем...`);
                 await this.updateSeries(seriesId, seriesInfo);
             } else {
-                console.log(`Добавляем новый сериал ID: ${seriesId}...`);
+                console.log(`➕ Добавляем новый сериал ID: ${seriesId}...`);
                 await this.insertSeries(seriesInfo);
             }
 
-            // Импортируем связанные данные
+            // Импортируем связанные данные (всегда обновляем связи)
+            console.log(`🔗 Импортирую связанные данные для сериала ID: ${seriesId}...`);
             await this.importRelatedData(seriesId, seriesInfo, metadata);
 
             // Импортируем сезоны с эпизодами
             if (seasonsData && seasonsData.length > 0) {
+                console.log(`📺 Импортирую ${seasonsData.length} сезонов...`);
                 await this.importSeasonsWithEpisodes(seriesId, seasonsData);
             }
 
             await this.commit();
-            console.log(`Сериал ID: ${seriesId} успешно импортирован`);
+            console.log(`✅ Сериал ID: ${seriesId} "${seriesInfo.name}" успешно импортирован`);
 
             return {
                 success: true,
                 seriesId: seriesId,
-                title: data.seriesInfo.name,
-                message: `Сериал ${data.seriesInfo.name} успешно импортирован`
+                title: seriesInfo.name,
+                message: `Сериал ${seriesInfo.name} успешно импортирован`
             };
 
         } catch (error) {
             await this.rollback();
-            console.error(`Ошибка импорта сериала ID: ${seriesId}:`, error);
-            throw error;
+            console.error(`❌ Ошибка импорта сериала ID: ${seriesId}:`, error.message);
+
+            return {
+                success: false,
+                seriesId: seriesId,
+                error: error.message,
+                reason: error.message
+            };
+
         } finally {
             await this.disconnect();
         }
@@ -128,14 +257,27 @@ export class SeriesImportService {
     async insertSeries(data) {
         const conn = await this.connect();
 
+        // Определяем published на лету
+        const hasOverview = data.overview && data.overview.trim() !== '';
+        const hasCyrillicName = data.name && /[а-яА-ЯёЁ]/.test(data.name);
+
+        // published = 1 только если есть описание И название на кириллице
+        const published = (hasOverview && hasCyrillicName) ? 1 : 0;
+
+        console.log(`📊 Для сериала ID: ${data.id} 
+        hasOverview: ${hasOverview}, 
+        hasCyrillicName: ${hasCyrillicName}, 
+        published: ${published}
+        ${published === 1 ? '✅ Будет показываться' : '❌ Будет скрыт'}`);
+
         const sql = `
-            INSERT INTO tv_series (
-                id, name, original_name, overview, status, type, adult,
-                backdrop_path, poster_path, homepage, tagline, original_language,
-                first_air_date, last_air_date, in_production, number_of_episodes,
-                number_of_seasons, popularity, vote_average, vote_count, published
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
+        INSERT INTO tv_series (
+            id, name, original_name, overview, status, type, adult,
+            backdrop_path, poster_path, homepage, tagline, original_language,
+            first_air_date, last_air_date, in_production, number_of_episodes,
+            number_of_seasons, popularity, vote_average, vote_count, published
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
 
         const values = [
             data.id,
@@ -158,7 +300,7 @@ export class SeriesImportService {
             data.popularity || 0,
             data.vote_average || 0,
             data.vote_count || 0,
-            true // published всегда true (1)
+            published // <-- динамически вычисленное значение
         ];
 
         await conn.query(sql, values);
@@ -170,14 +312,23 @@ export class SeriesImportService {
     async updateSeries(seriesId, data) {
         const conn = await this.connect();
 
+        // Определяем published на лету (та же логика)
+        const hasOverview = data.overview && data.overview.trim() !== '';
+        const hasCyrillicName = data.name && /[а-яА-ЯёЁ]/.test(data.name);
+        const published = (hasOverview && hasCyrillicName) ? 1 : 0;
+
+        console.log(`📊 Обновление published для сериала ID: ${seriesId} -> ${published}
+        ${published === 1 ? '✅ Будет показываться' : '❌ Будет скрыт'}`);
+
         const sql = `
-            UPDATE tv_series SET
-                                 name = ?, original_name = ?, overview = ?, status = ?, type = ?, adult = ?,
-                                 backdrop_path = ?, poster_path = ?, homepage = ?, tagline = ?, original_language = ?,
-                                 first_air_date = ?, last_air_date = ?, in_production = ?, number_of_episodes = ?,
-                                 number_of_seasons = ?, popularity = ?, vote_average = ?, vote_count = ?
-            WHERE id = ?
-        `;
+        UPDATE tv_series SET
+            name = ?, original_name = ?, overview = ?, status = ?, type = ?, adult = ?,
+            backdrop_path = ?, poster_path = ?, homepage = ?, tagline = ?, original_language = ?,
+            first_air_date = ?, last_air_date = ?, in_production = ?, number_of_episodes = ?,
+            number_of_seasons = ?, popularity = ?, vote_average = ?, vote_count = ?,
+            published = ?
+        WHERE id = ?
+    `;
 
         const values = [
             data.name,
@@ -199,6 +350,7 @@ export class SeriesImportService {
             data.popularity || 0,
             data.vote_average || 0,
             data.vote_count || 0,
+            published,
             seriesId
         ];
 

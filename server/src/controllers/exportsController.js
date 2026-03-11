@@ -30,6 +30,7 @@ class TMDBExportController {
             });
         }
     }
+
     async getURLCollectionsFile(req,res) {
         try {
             const filePath = `tmdb_downloads/${ds.extractFileNameFromUrl(links.collectionLink)}`
@@ -51,6 +52,7 @@ class TMDBExportController {
             });
         }
     }
+
     async getURLTvSeriesFile(req,res) {
         try {
             const filePath = `tmdb_downloads/${ds.extractFileNameFromUrl(links.tvSeriesLink)}`
@@ -72,6 +74,7 @@ class TMDBExportController {
             });
         }
     }
+
     async getAllURLs(req,res) {
         try {
             const filesToDownload = [

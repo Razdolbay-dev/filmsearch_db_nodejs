@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "nodemon --legacy-watch --ignore 'src/img/' --ignore '../frontend/dist/' app.js",
     "start": "node app.js",
+    "download:posters": "node src/scripts/download-posters.js",
+    "download:backdrops": "node src/scripts/download-backdrops.js",
+    "download:all": "npm run download:posters && npm run download:backdrops",
     "import:movie": "node src/scripts/importMovie.js",
     "import:tv": "node src/scripts/importTvSeries.js",
     "import:all": "node src/scripts/importAll.js"
