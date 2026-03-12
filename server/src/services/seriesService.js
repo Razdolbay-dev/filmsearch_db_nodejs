@@ -38,6 +38,7 @@ class SeriesService {
         WHERE overview IS NOT NULL 
         AND overview != '' 
         AND name REGEXP '[а-яА-ЯёЁ]'
+        AND published = 1
         ORDER BY popularity DESC 
         LIMIT ? OFFSET ?
     `, [limit, offset]);
@@ -48,6 +49,7 @@ class SeriesService {
         WHERE overview IS NOT NULL 
         AND overview != '' 
         AND name REGEXP '[а-яА-ЯёЁ]'
+        AND published = 1
     `);
 
         return {

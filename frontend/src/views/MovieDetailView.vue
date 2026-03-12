@@ -4,44 +4,24 @@
   </div>
 
   <div v-else-if="movie" class="max-w-6xl mx-auto">
-    <!-- Бэкдроп
-    <div
-        v-if="movie.backdrop_path"
-        class="relative h-96 rounded-lg overflow-hidden mb-8"
-    >
-      <img
-          :src="`https://image.tmdb.org/t/p/original${movie.backdrop_path}`"
-          :alt="movie.title"
-          class="w-full h-full object-cover"
-          @error="handleBackdropError"
-      />
-
-      <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent">
-
-
-      </div>
-
-    </div> -->
-
     <!-- Основная информация -->
     <div class="flex flex-col md:flex-row gap-8">
       <!-- Постер -->
       <div class="md:w-1/3">
         <img
-            v-if="movie.poster_path"
-            :src="`images/posters${movie.poster_path}`"
+            v-if="movie.poster_path && !showPosterPlaceholder"
+            :src="currentPosterUrl"
             :alt="movie.title"
             class="w-full rounded-lg shadow-lg"
             @error="handlePosterError"
+            @load="handlePosterLoad"
         />
-        <div v-else class="w-full aspect-[2/3] bg-gray-200 rounded-lg flex items-center justify-center">
+        <div
+            v-else
+            class="w-full aspect-[2/3] bg-gray-200 rounded-lg flex items-center justify-center"
+        >
           <span class="text-gray-400">Нет постера</span>
         </div>
-        <button
-            class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors"
-        >
-          СМОТРЕТЬ
-        </button>
       </div>
 
       <!-- Детали -->
@@ -60,10 +40,8 @@
           <span class="px-3 py-1 bg-gray-200 rounded-full">
             {{ formatRuntime(movie.runtime) }}
           </span>
-          <span class="px-3 py-1 ">
-            IMDB: <span class="px-3 py-1 bg-gray-200 rounded-full">
-            {{ movie.imdb_id }}
-            </span>
+          <span v-if="movie.imdb_id" class="px-3 py-1 bg-gray-200 rounded-full">
+            IMDB: {{ movie.imdb_id }}
           </span>
           <span v-if="movie.adult" class="px-3 py-1 bg-red-200 text-red-800 rounded-full">
             18+
@@ -113,8 +91,6 @@
             <h3 class="font-semibold mb-2">Сборы</h3>
             <p class="text-gray-600">{{ formatCurrency(movie.revenue) }}</p>
           </div>
-
-
         </div>
 
         <div v-if="movie.homepage" class="mb-6">
@@ -129,7 +105,6 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </a>
-
         </div>
 
         <!-- Отладка (только в разработке) -->
@@ -149,18 +124,38 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
-import { apiClient } from '../api/client';
+import { apiClient } from '@/api/client';
 import {
   formatVoteAverage,
   formatYear,
   formatRuntime,
   formatCurrency
-} from '../utils/formatters';
+} from '@/utils/formatters';
 
 const route = useRoute();
 const movie = ref(null);
 const loading = ref(true);
-const showDebug = import.meta.env.DEV; // Показывать отладку только в разработке
+const showDebug = import.meta.env.DEV;
+
+// Состояние для постера
+const posterLoadAttempted = ref(false);
+const posterLoadFailed = ref(false);
+const showPosterPlaceholder = computed(() => {
+  return !movie.value?.poster_path || posterLoadFailed.value;
+});
+
+// Текущий URL постера
+const currentPosterUrl = computed(() => {
+  if (!movie.value?.poster_path) return null;
+
+  // Если первая попытка загрузки не удалась, пробуем TMDB
+  if (posterLoadAttempted.value && posterLoadFailed.value) {
+    return `https://image.tmdb.org/t/p/w500${movie.value.poster_path}`;
+  }
+
+  // Иначе пробуем локальный путь
+  return `/images/posters${movie.value.poster_path}`;
+});
 
 // Форматирование компаний
 const formatCompanies = (companies) => {
@@ -186,7 +181,22 @@ const handleBackdropError = (e) => {
 };
 
 const handlePosterError = (e) => {
-  e.target.src = 'https://via.placeholder.com/500x750?text=No+Poster';
+  console.log('❌ Ошибка загрузки постера:', e.target.src);
+
+  if (!posterLoadAttempted.value) {
+    // Первая ошибка - пробуем TMDB
+    posterLoadAttempted.value = true;
+    posterLoadFailed.value = true;
+  } else {
+    // Вторая ошибка - показываем заглушку
+    posterLoadFailed.value = true;
+  }
+};
+
+const handlePosterLoad = () => {
+  console.log('✅ Постер успешно загружен:', currentPosterUrl.value);
+  // Сбрасываем флаги при успешной загрузке
+  posterLoadFailed.value = false;
 };
 
 onMounted(async () => {
@@ -199,6 +209,7 @@ onMounted(async () => {
     if (response.success && response.data) {
       movie.value = response.data;
       console.log('✅ Фильм загружен:', movie.value);
+      console.log('🖼️ Постер путь:', movie.value.poster_path);
     } else {
       console.error('❌ Ошибка в ответе API:', response);
     }

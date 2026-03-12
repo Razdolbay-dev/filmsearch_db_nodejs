@@ -23,13 +23,17 @@
       <!-- Постер -->
       <div class="md:w-1/3">
         <img
-            v-if="series.poster_path"
-            :src="`images/posters${series.poster_path}`"
+            v-if="series.poster_path && !showPosterPlaceholder"
+            :src="currentPosterUrl"
             :alt="series.name"
             class="w-full rounded-lg shadow-lg"
             @error="handlePosterError"
+            @load="handlePosterLoad"
         />
-        <div v-else class="w-full aspect-[2/3] bg-gray-200 rounded-lg flex items-center justify-center">
+        <div
+            v-else
+            class="w-full aspect-[2/3] bg-gray-200 rounded-lg flex items-center justify-center"
+        >
           <span class="text-gray-400">Нет постера</span>
         </div>
       </div>
@@ -202,14 +206,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import {ref, onMounted, computed} from 'vue';
 import { useRoute } from 'vue-router';
-import { apiClient } from '../api/client';
+import { apiClient } from '@/api/client';
 import {
   formatVoteAverage,
   formatYear,
   formatRuntime
-} from '../utils/formatters';
+} from '@/utils/formatters';
 
 const route = useRoute();
 const series = ref(null);
@@ -219,6 +223,49 @@ const episodesLoading = ref({});
 const expandedSeasons = ref([]);
 const loading = ref(true);
 const showDebug = import.meta.env.DEV;
+
+// Состояние для постера
+const posterLoadAttempted = ref(false);
+const posterLoadFailed = ref(false);
+const showPosterPlaceholder = computed(() => {
+  return !series.value?.poster_path || posterLoadFailed.value;
+});
+
+// Текущий URL постера
+const currentPosterUrl = computed(() => {
+  if (!series.value?.poster_path) return null;
+
+  // Если первая попытка загрузки не удалась, пробуем TMDB
+  if (posterLoadAttempted.value && posterLoadFailed.value) {
+    return `https://image.tmdb.org/t/p/w500${series.value.poster_path}`;
+  }
+
+  // Иначе пробуем локальный путь
+  return `/images/posters${series.value.poster_path}`;
+});
+
+const handlePosterError = (e) => {
+  console.log('❌ Ошибка загрузки постера:', e.target.src);
+
+  if (!posterLoadAttempted.value) {
+    // Первая ошибка - пробуем TMDB
+    posterLoadAttempted.value = true;
+    posterLoadFailed.value = true;
+  } else {
+    // Вторая ошибка - показываем заглушку
+    posterLoadFailed.value = true;
+  }
+};
+
+const handlePosterLoad = () => {
+  console.log('✅ Постер успешно загружен:', currentPosterUrl.value);
+  // Сбрасываем флаги при успешной загрузке
+  posterLoadFailed.value = false;
+};
+
+const handleBackdropError = (e) => {
+  e.target.style.display = 'none';
+};
 
 // Форматирование компаний
 const formatCompanies = (companies) => {
@@ -259,14 +306,6 @@ const pluralize = (word, count) => {
   return word + 'ов';
 };
 
-const handleBackdropError = (e) => {
-  e.target.style.display = 'none';
-};
-
-const handlePosterError = (e) => {
-  e.target.src = 'https://via.placeholder.com/500x750?text=No+Poster';
-};
-
 const toggleSeason = async (seasonId) => {
   const index = expandedSeasons.value.indexOf(seasonId);
 
@@ -304,6 +343,7 @@ onMounted(async () => {
     if (response.success && response.data) {
       series.value = response.data;
       console.log('✅ Сериал загружен:', series.value);
+      console.log('🖼️ Постер путь:', series.value.poster_path);
 
       // Загружаем сезоны
       const seasonsResponse = await apiClient.getSeriesSeasons(route.params.id);

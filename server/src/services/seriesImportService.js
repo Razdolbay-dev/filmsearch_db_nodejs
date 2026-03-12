@@ -1,5 +1,6 @@
 import { pool } from "../config/database.js";
 import axios from 'axios';
+import { generateEpisodeId, validateEpisodeId } from '../utils/hashGenerator.js';
 
 // URL API
 const API_BASE_URL = 'http://127.0.0.1:5000/api/tmdb_series';
@@ -405,12 +406,37 @@ export class SeriesImportService {
     /**
      * Импорт сезонов с эпизодами
      */
+    // async importSeasonsWithEpisodes(seriesId, seasonsData) {
+    //     const conn = await this.connect();
+    //
+    //     for (const season of seasonsData) {
+    //         if (!season.success) {
+    //             console.warn(`Сезон ${season.season_number} не загружен, пропускаем...`);
+    //             continue;
+    //         }
+    //
+    //         const seasonId = season.id;
+    //
+    //         // Импортируем сезон
+    //         await this.importSeason(seriesId, season);
+    //
+    //         // Импортируем эпизоды
+    //         if (season.episodesPreview && season.episodesPreview.length > 0) {
+    //             await this.importEpisodesForSeason(seriesId, seasonId, season.season_number, season.episodesPreview);
+    //         }
+    //     }
+    // }
+
+    /**
+     * Импорт сезонов с эпизодами (обновленная версия)
+     */
     async importSeasonsWithEpisodes(seriesId, seasonsData) {
         const conn = await this.connect();
+        let totalStats = { added: 0, updated: 0, errors: 0 };
 
         for (const season of seasonsData) {
             if (!season.success) {
-                console.warn(`Сезон ${season.season_number} не загружен, пропускаем...`);
+                console.warn(`⚠️ Сезон ${season.season_number} не загружен, пропускаем...`);
                 continue;
             }
 
@@ -419,15 +445,80 @@ export class SeriesImportService {
             // Импортируем сезон
             await this.importSeason(seriesId, season);
 
-            // Импортируем эпизоды
+            // Импортируем эпизоды с новой системой ID
             if (season.episodesPreview && season.episodesPreview.length > 0) {
-                await this.importEpisodesForSeason(seriesId, seasonId, season.season_number, season.episodesPreview);
+                console.log(`   📺 Сезон ${season.season_number}: импорт ${season.episodesPreview.length} эпизодов...`);
+                const stats = await this.importEpisodesForSeason(
+                    seriesId,
+                    seasonId,
+                    season.season_number,
+                    season.episodesPreview
+                );
+
+                totalStats.added += stats.added;
+                totalStats.updated += stats.updated;
+                totalStats.errors += stats.errors;
             }
         }
+
+        console.log(`📊 Всего по сериалу: +${totalStats.added} новых эпизодов, 🔄 ${totalStats.updated} обновлено, ❌ ${totalStats.errors} ошибок`);
     }
+
 
     /**
      * Импорт сезона
+     */
+    // async importSeason(seriesId, seasonData) {
+    //     const conn = await this.connect();
+    //
+    //     // Проверяем, существует ли сезон
+    //     const [existing] = await conn.query(
+    //         'SELECT id FROM tv_seasons WHERE id = ?',
+    //         [seasonData.id]
+    //     );
+    //
+    //     if (existing.length === 0) {
+    //         await conn.query(
+    //             `INSERT INTO tv_seasons (
+    //                 id, series_id, season_number, name, overview, air_date,
+    //                 episode_count, poster_path, vote_average
+    //             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    //             [
+    //                 seasonData.id,
+    //                 seriesId,
+    //                 seasonData.season_number,
+    //                 seasonData.name,
+    //                 seasonData.overview || null,
+    //                 seasonData.air_date || null,
+    //                 seasonData.episode_count || 0,
+    //                 seasonData.poster_path,
+    //                 seasonData.vote_average || 0
+    //             ]
+    //         );
+    //     } else {
+    //         // Обновляем существующий сезон
+    //         await conn.query(
+    //             `UPDATE tv_seasons SET
+    //                 series_id = ?, season_number = ?, name = ?, overview = ?, air_date = ?,
+    //                 episode_count = ?, poster_path = ?, vote_average = ?
+    //             WHERE id = ?`,
+    //             [
+    //                 seriesId,
+    //                 seasonData.season_number,
+    //                 seasonData.name,
+    //                 seasonData.overview || null,
+    //                 seasonData.air_date || null,
+    //                 seasonData.episode_count || 0,
+    //                 seasonData.poster_path,
+    //                 seasonData.vote_average || 0,
+    //                 seasonData.id
+    //             ]
+    //         );
+    //     }
+    // }
+
+    /**
+     * Импорт сезона (небольшое улучшение)
      */
     async importSeason(seriesId, seasonData) {
         const conn = await this.connect();
@@ -438,123 +529,223 @@ export class SeriesImportService {
             [seasonData.id]
         );
 
+        const seasonValues = [
+            seasonData.id,
+            seriesId,
+            seasonData.season_number,
+            seasonData.name || `Season ${seasonData.season_number}`,
+            seasonData.overview || null,
+            seasonData.air_date || null,
+            seasonData.episode_count || 0,
+            seasonData.poster_path || null,
+            seasonData.vote_average || 0
+        ];
+
         if (existing.length === 0) {
             await conn.query(
                 `INSERT INTO tv_seasons (
-                    id, series_id, season_number, name, overview, air_date,
-                    episode_count, poster_path, vote_average
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
-                    seasonData.id,
-                    seriesId,
-                    seasonData.season_number,
-                    seasonData.name,
-                    seasonData.overview || null,
-                    seasonData.air_date || null,
-                    seasonData.episode_count || 0,
-                    seasonData.poster_path,
-                    seasonData.vote_average || 0
-                ]
+                id, series_id, season_number, name, overview, air_date,
+                episode_count, poster_path, vote_average
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                seasonValues
             );
+            console.log(`   ✅ Добавлен сезон ${seasonData.season_number}`);
         } else {
-            // Обновляем существующий сезон
             await conn.query(
                 `UPDATE tv_seasons SET
-                    series_id = ?, season_number = ?, name = ?, overview = ?, air_date = ?,
-                    episode_count = ?, poster_path = ?, vote_average = ?
-                WHERE id = ?`,
-                [
-                    seriesId,
-                    seasonData.season_number,
-                    seasonData.name,
-                    seasonData.overview || null,
-                    seasonData.air_date || null,
-                    seasonData.episode_count || 0,
-                    seasonData.poster_path,
-                    seasonData.vote_average || 0,
-                    seasonData.id
-                ]
+                series_id = ?, season_number = ?, name = ?, overview = ?, air_date = ?,
+                episode_count = ?, poster_path = ?, vote_average = ?
+            WHERE id = ?`,
+                [...seasonValues.slice(1), seasonData.id]
             );
+            console.log(`   🔄 Обновлен сезон ${seasonData.season_number}`);
         }
+    }
+
+
+    /**
+     * Проверка целостности данных эпизодов
+     */
+    async validateEpisodesIntegrity(seriesId) {
+        const conn = await this.connect();
+
+        const [duplicates] = await conn.query(`
+        SELECT id, COUNT(*) as count 
+        FROM tv_episodes 
+        WHERE series_id = ?
+        GROUP BY id 
+        HAVING count > 1
+    `, [seriesId]);
+
+        if (duplicates.length > 0) {
+            console.warn(`⚠️ Найдены дубликаты ID эпизодов:`, duplicates);
+        }
+
+        const [orphans] = await conn.query(`
+        SELECT e.* 
+        FROM tv_episodes e
+        LEFT JOIN tv_seasons s ON e.season_id = s.id
+        WHERE e.series_id = ? AND s.id IS NULL
+    `, [seriesId]);
+
+        if (orphans.length > 0) {
+            console.warn(`⚠️ Найдены эпизоды без сезона: ${orphans.length}`);
+        }
+
+        return { duplicates: duplicates.length, orphans: orphans.length };
     }
 
     /**
      * Импорт эпизодов для сезона
      */
+    // async importEpisodesForSeason(seriesId, seasonId, seasonNumber, episodes) {
+    //     const conn = await this.connect();
+    //
+    //     for (const episode of episodes) {
+    //         try {
+    //             // Проверяем, существует ли эпизод
+    //             // Для эпизодов без ID генерируем его
+    //             const episodeId = this.generateEpisodeId(seriesId, seasonNumber, episode.episode_number);
+    //
+    //             const [existing] = await conn.query(
+    //                 'SELECT id FROM tv_episodes WHERE id = ?',
+    //                 [episodeId]
+    //             );
+    //
+    //             if (existing.length === 0) {
+    //                 await conn.query(
+    //                     `INSERT INTO tv_episodes (
+    //                         id, series_id, season_id, season_number, episode_number,
+    //                         name, overview, air_date, runtime, vote_average, vote_count,
+    //                         still_path
+    //                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    //                     [
+    //                         episodeId,
+    //                         seriesId,
+    //                         seasonId,
+    //                         seasonNumber,
+    //                         episode.episode_number,
+    //                         episode.name,
+    //                         episode.overview || null,
+    //                         episode.air_date || null,
+    //                         episode.runtime,
+    //                         episode.vote_average || 0,
+    //                         episode.vote_count || 0,
+    //                         episode.still_path
+    //                     ]
+    //                 );
+    //             } else {
+    //                 // Обновляем существующий эпизод
+    //                 await conn.query(
+    //                     `UPDATE tv_episodes SET
+    //                         series_id = ?, season_id = ?, season_number = ?, episode_number = ?,
+    //                         name = ?, overview = ?, air_date = ?, runtime = ?, vote_average = ?, vote_count = ?,
+    //                         still_path = ?
+    //                     WHERE id = ?`,
+    //                     [
+    //                         seriesId,
+    //                         seasonId,
+    //                         seasonNumber,
+    //                         episode.episode_number,
+    //                         episode.name,
+    //                         episode.overview || null,
+    //                         episode.air_date || null,
+    //                         episode.runtime,
+    //                         episode.vote_average || 0,
+    //                         episode.vote_count || 0,
+    //                         episode.still_path,
+    //                         episodeId
+    //                     ]
+    //                 );
+    //             }
+    //         } catch (error) {
+    //             console.error(`Ошибка импорта эпизода S${seasonNumber}E${episode.episode_number}:`, error.message);
+    //             // Продолжаем импорт остальных эпизодов
+    //         }
+    //     }
+    // }
+
+    /**
+     * Импорт эпизодов для сезона (обновленная версия)
+     */
     async importEpisodesForSeason(seriesId, seasonId, seasonNumber, episodes) {
         const conn = await this.connect();
+        let stats = { added: 0, updated: 0, errors: 0 };
 
         for (const episode of episodes) {
             try {
-                // Проверяем, существует ли эпизод
-                // Для эпизодов без ID генерируем его
-                const episodeId = this.generateEpisodeId(seriesId, seasonNumber, episode.episode_number);
+                // Генерируем ID для эпизода
+                const episodeId = generateEpisodeId(seriesId, seasonNumber, episode.episode_number);
 
+                console.log(`   📺 S${seasonNumber}E${episode.episode_number} -> ID: ${episodeId}`);
+
+                // Проверяем существование эпизода
                 const [existing] = await conn.query(
                     'SELECT id FROM tv_episodes WHERE id = ?',
                     [episodeId]
                 );
 
+                // Подготавливаем данные эпизода
+                const episodeData = [
+                    episodeId,
+                    seriesId,
+                    seasonId,
+                    seasonNumber,
+                    episode.episode_number,
+                    episode.name || 'Unknown',
+                    episode.overview || null,
+                    episode.air_date || null,
+                    episode.runtime || 0,
+                    episode.vote_average || 0,
+                    episode.vote_count || 0,
+                    episode.still_path || null
+                ];
+
                 if (existing.length === 0) {
+                    // Вставка нового эпизода
                     await conn.query(
                         `INSERT INTO tv_episodes (
-                            id, series_id, season_id, season_number, episode_number,
-                            name, overview, air_date, runtime, vote_average, vote_count,
-                            still_path
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                        [
-                            episodeId,
-                            seriesId,
-                            seasonId,
-                            seasonNumber,
-                            episode.episode_number,
-                            episode.name,
-                            episode.overview || null,
-                            episode.air_date || null,
-                            episode.runtime,
-                            episode.vote_average || 0,
-                            episode.vote_count || 0,
-                            episode.still_path
-                        ]
+                        id, series_id, season_id, season_number, episode_number,
+                        name, overview, air_date, runtime, vote_average, vote_count,
+                        still_path
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        episodeData
                     );
+                    stats.added++;
+                    console.log(`     ✅ Добавлен эпизод ID: ${episodeId}`);
                 } else {
-                    // Обновляем существующий эпизод
+                    // Обновление существующего эпизода
                     await conn.query(
                         `UPDATE tv_episodes SET
-                            series_id = ?, season_id = ?, season_number = ?, episode_number = ?,
-                            name = ?, overview = ?, air_date = ?, runtime = ?, vote_average = ?, vote_count = ?,
-                            still_path = ?
-                        WHERE id = ?`,
-                        [
-                            seriesId,
-                            seasonId,
-                            seasonNumber,
-                            episode.episode_number,
-                            episode.name,
-                            episode.overview || null,
-                            episode.air_date || null,
-                            episode.runtime,
-                            episode.vote_average || 0,
-                            episode.vote_count || 0,
-                            episode.still_path,
-                            episodeId
-                        ]
+                        series_id = ?, season_id = ?, season_number = ?, episode_number = ?,
+                        name = ?, overview = ?, air_date = ?, runtime = ?,
+                        vote_average = ?, vote_count = ?, still_path = ?
+                    WHERE id = ?`,
+                        [...episodeData.slice(1), episodeId] // Убираем первый элемент (id) из данных для SET
                     );
+                    stats.updated++;
+                    console.log(`     🔄 Обновлен эпизод ID: ${episodeId}`);
                 }
+
             } catch (error) {
-                console.error(`Ошибка импорта эпизода S${seasonNumber}E${episode.episode_number}:`, error.message);
-                // Продолжаем импорт остальных эпизодов
+                stats.errors++;
+                console.error(`   ❌ Ошибка импорта эпизода S${seasonNumber}E${episode.episode_number}:`, error.message);
+                // Продолжаем с другими эпизодами
             }
         }
+
+        console.log(`   📊 Статистика для S${seasonNumber}: +${stats.added} новых, 🔄 ${stats.updated} обновлено, ❌ ${stats.errors} ошибок`);
+        return stats;
     }
+
 
     /**
      * Генерация ID для эпизода
      */
-    generateEpisodeId(seriesId, seasonNumber, episodeNumber) {
-        // Простая генерация: сериалID * 10000 + сезон * 100 + эпизод
-        return seriesId * 10000 + seasonNumber * 100 + episodeNumber;
-    }
+    // generateEpisodeId(seriesId, seasonNumber, episodeNumber) {
+    //     // Простая генерация: сериалID * 10000 + сезон * 100 + эпизод
+    //     return seriesId * 10000 + seasonNumber * 100 + episodeNumber;
+    // }
 
     /**
      * Импорт жанров
