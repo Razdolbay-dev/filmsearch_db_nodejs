@@ -5,30 +5,6 @@ class MoviesService {
         this.pool = pool;
     }
 
-    // Получить все фильмы с пагинацией
-    // async getAllMovies(page = 1, limit = 20) {
-    //     const offset = (page - 1) * limit;
-    //
-    //     const [rows] = await this.pool.execute(
-    //         'SELECT * FROM movies ORDER BY release_date DESC LIMIT ? OFFSET ?',
-    //         [limit, offset]
-    //     );
-    //
-    //     const [total] = await this.pool.execute(
-    //         'SELECT COUNT(*) as count FROM movies'
-    //     );
-    //
-    //     return {
-    //         data: rows,
-    //         pagination: {
-    //             page,
-    //             limit,
-    //             total: total[0].count,
-    //             pages: Math.ceil(total[0].count / limit)
-    //         }
-    //     };
-    // }
-
     async getAllMovies(page = 1, limit = 20) {
         const offset = (page - 1) * limit;
 

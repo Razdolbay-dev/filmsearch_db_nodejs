@@ -13,7 +13,7 @@
       </button>
     </div>
 
-    <!-- Поиск и фильтры (аналогично MoviesView) -->
+    <!-- Поиск и фильтры -->
     <div class="bg-white rounded-lg shadow p-4 mb-6">
       <div class="flex flex-col md:flex-row gap-4">
         <div class="flex-1">
@@ -26,12 +26,28 @@
           />
         </div>
         <div class="flex gap-2">
-          <select v-model="filterStatus" class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <select
+              v-model="filterStatus"
+              @change="applyStatusFilter"
+              class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
             <option value="">Все статусы</option>
             <option value="Returning Series">Возвращается</option>
             <option value="Ended">Завершен</option>
             <option value="In Production">В производстве</option>
           </select>
+
+          <!-- Кнопка сброса фильтров -->
+          <button
+              v-if="searchQuery || filterStatus"
+              @click="clearFilters"
+              class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition flex items-center"
+              title="Сбросить все фильтры"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -61,7 +77,7 @@
             <td class="px-6 py-4 text-sm text-gray-500">{{ item.id }}</td>
             <td class="px-6 py-4">
               <img v-if="item.poster_path"
-                   :src="`https://image.tmdb.org/t/p/w92${item.poster_path}`"
+                   :src="`/images/posters${item.poster_path}`"
                    class="w-12 h-16 object-cover rounded">
               <div v-else class="w-12 h-16 bg-gray-200 rounded flex items-center justify-center">
                 <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,9 +121,17 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                   </svg>
                 </button>
-                <button @click="confirmDelete(item)" class="text-red-600 hover:text-red-800">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                <!-- Кнопка исключения сериала -->
+                <button @click="excludeSeries(item)"
+                        class="text-orange-600 hover:text-orange-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        :disabled="excludingSeriesId === item.id"
+                        title="Исключить из синхронизации (добавить в blacklist)">
+                  <svg v-if="excludingSeriesId === item.id" class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                   </svg>
                 </button>
               </div>
@@ -131,18 +155,140 @@
       </div>
     </div>
 
-    <!-- Модалки (аналогично MoviesView) -->
-    <!-- ... модалки добавления/редактирования/удаления ... -->
+    <!-- Модалка добавления/редактирования -->
+    <div v-if="showAddModal || showEditModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-6">
+          <h2 class="text-xl font-bold mb-4">{{ showEditModal ? 'Редактировать сериал' : 'Добавить сериал' }}</h2>
+
+          <form @submit.prevent="saveSeries">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="col-span-2">
+                <label class="block text-gray-700 text-sm font-bold mb-2">TMDB ID</label>
+                <input v-model="seriesForm.tmdb_id" type="number" required
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+              </div>
+
+              <div class="col-span-2">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Название</label>
+                <input v-model="seriesForm.name" type="text" required
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+              </div>
+
+              <div class="col-span-2">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Оригинальное название</label>
+                <input v-model="seriesForm.original_name" type="text"
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+              </div>
+
+              <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">Первый эфир</label>
+                <input v-model="seriesForm.first_air_date" type="date"
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+              </div>
+
+              <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">Последний эфир</label>
+                <input v-model="seriesForm.last_air_date" type="date"
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+              </div>
+
+              <div class="col-span-2">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Описание</label>
+                <textarea v-model="seriesForm.overview" rows="3"
+                          class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"></textarea>
+              </div>
+
+              <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">Количество сезонов</label>
+                <input v-model="seriesForm.number_of_seasons" type="number" min="0"
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+              </div>
+
+              <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">Количество эпизодов</label>
+                <input v-model="seriesForm.number_of_episodes" type="number" min="0"
+                       class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+              </div>
+
+              <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">Статус</label>
+                <select v-model="seriesForm.status"
+                        class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+                  <option value="Returning Series">Returning Series</option>
+                  <option value="Ended">Ended</option>
+                  <option value="In Production">In Production</option>
+                  <option value="Canceled">Canceled</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">Тип</label>
+                <select v-model="seriesForm.type"
+                        class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+                  <option value="Scripted">Scripted</option>
+                  <option value="Reality">Reality</option>
+                  <option value="Documentary">Documentary</option>
+                  <option value="News">News</option>
+                  <option value="Talk Show">Talk Show</option>
+                </select>
+              </div>
+
+              <div class="col-span-2">
+                <label class="flex items-center">
+                  <input v-model="seriesForm.in_production" type="checkbox"
+                         class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                  <span class="ml-2 text-sm text-gray-700">В производстве</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 mt-6">
+              <button type="button" @click="closeModals"
+                      class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition">
+                Отмена
+              </button>
+              <button type="submit" :disabled="saving"
+                      class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition disabled:opacity-50">
+                {{ saving ? 'Сохранение...' : 'Сохранить' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Модалка подтверждения удаления -->
+    <div v-if="showDeleteModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-lg max-w-md w-full p-6">
+        <h2 class="text-xl font-bold mb-4">Подтверждение удаления</h2>
+        <p class="text-gray-600 mb-6">
+          Вы уверены, что хотите удалить сериал "{{ selectedSeries?.name }}"?
+          Это действие нельзя отменить.
+        </p>
+        <div class="flex justify-end space-x-2">
+          <button @click="showDeleteModal = false"
+                  class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition">
+            Отмена
+          </button>
+          <button @click="deleteSeries" :disabled="deleting"
+                  class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition disabled:opacity-50">
+            {{ deleting ? 'Удаление...' : 'Удалить' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { apiClient } from '@/api/client';
 import { adminApi } from '@/api/admin.client';
 import Pagination from '@/components/Pagination.vue';
 import { debounce } from 'lodash-es';
+import { excludeApi } from "@/api/content.client.js";
 
 const router = useRouter();
 const route = useRoute();
@@ -150,18 +296,19 @@ const route = useRoute();
 // Состояние
 const series = ref([]);
 const loading = ref(true);
+const saving = ref(false);
+const deleting = ref(false);
 const currentPage = ref(1);
 const totalPages = ref(1);
 const searchQuery = ref('');
 const filterStatus = ref('');
 const selectedSeries = ref(null);
+const excludingSeriesId = ref(null);
 
 // Модалки
 const showAddModal = ref(false);
 const showEditModal = ref(false);
 const showDeleteModal = ref(false);
-const saving = ref(false);
-const deleting = ref(false);
 
 // Форма
 const seriesForm = ref({
@@ -239,27 +386,43 @@ const loadSeries = async (page = currentPage.value) => {
 
     if (searchQuery.value) {
       // Поиск
+      console.log('🔍 Поиск сериалов:', searchQuery.value);
       response = await apiClient.searchSeries(searchQuery.value, page);
-    } else if (filterStatus.value === 'popular') {
-      // Популярные
-      response = await apiClient.getPopularSeries();
-    } else if (filterStatus.value === 'production') {
+    } else if (filterStatus.value === 'In Production') {
       // В производстве
+      console.log('🎬 Фильтр: в производстве');
       response = await apiClient.getInProductionSeries(page);
+    } else if (filterStatus.value) {
+      // Фильтр по статусу (если API поддерживает)
+      console.log('📋 Фильтр по статусу:', filterStatus.value);
+      // Если API не поддерживает фильтр по статусу, показываем все
+      response = await apiClient.getSeries(page);
     } else {
       // Все сериалы
+      console.log('📋 Все сериалы, страница:', page);
       response = await apiClient.getSeries(page);
     }
 
+    console.log('📦 Ответ от API:', response);
+
     if (response.success) {
-      if (filterStatus.value === 'popular') {
-        series.value = response.data || [];
+      // Обрабатываем разные форматы ответа
+      if (response.data && Array.isArray(response.data)) {
+        series.value = response.data;
+        totalPages.value = response.pagination?.pages || 1;
+      } else if (response.data && response.data.data) {
+        series.value = response.data.data;
+        totalPages.value = response.data.pagination?.pages || 1;
+      } else if (Array.isArray(response)) {
+        series.value = response;
         totalPages.value = 1;
       } else {
-        series.value = response.data.data || [];
-        totalPages.value = response.data.pagination?.pages || 1;
+        series.value = [];
+        totalPages.value = 1;
       }
       currentPage.value = page;
+    } else {
+      console.error('Ответ API не содержит success: true');
     }
   } catch (error) {
     console.error('Error loading series:', error);
@@ -273,15 +436,20 @@ const goToSeriesDetails = (id) => {
   router.push(`/series/${id}`);
 };
 
-const handleSearch = debounce(() => {
+// Исправленный handleSearch
+const handleSearch = () => {
   currentPage.value = 1;
   filterStatus.value = '';
   updateQueryParams();
   loadSeries(1);
+};
+
+const debouncedSearch = debounce(() => {
+  handleSearch();
 }, 500);
 
-const setFilter = (filter) => {
-  filterStatus.value = filter;
+// Исправленный applyStatusFilter
+const applyStatusFilter = () => {
   currentPage.value = 1;
   searchQuery.value = '';
   updateQueryParams();
@@ -376,11 +544,57 @@ const deleteSeries = async () => {
   }
 };
 
+// Метод исключения сериала
+const excludeSeries = async (series) => {
+  // Спрашиваем подтверждение
+  const confirmed = await new Promise((resolve) => {
+    if (confirm(`Вы уверены, что хотите исключить сериал "${series.name}" из синхронизации?\n\nЭто действие:\n• Удалит сериал из базы данных\n• Удалит все сезоны и эпизоды\n• Добавит его TMDB ID в blacklist\n• При следующей синхронизации он не загрузится`)) {
+      resolve(true);
+    } else {
+      resolve(false);
+    }
+  });
+
+  if (!confirmed) return;
+
+  // Устанавливаем ID исключаемого сериала для отображения спиннера
+  excludingSeriesId.value = series.id;
+
+  try {
+    const response = await excludeApi.excludeSeries(series.id);
+
+    if (response.success) {
+      // Просто показываем сообщение об успехе
+      alert('✅ Сериал успешно исключён из синхронизации');
+
+      // Перезагружаем список
+      await loadSeries(currentPage.value);
+    } else {
+      throw new Error(response.message || 'Ошибка при исключении');
+    }
+  } catch (error) {
+    console.error('Error excluding series:', error);
+    alert(`❌ Ошибка: ${error.message}`);
+  } finally {
+    // Сбрасываем ID исключаемого сериала
+    excludingSeriesId.value = null;
+  }
+};
+
 // Следим за изменениями query параметров
 watch(() => route.query, (newQuery) => {
   console.log('🔍 Series: изменение query:', newQuery);
-  initFromQuery();
-  loadSeries(currentPage.value);
+
+  // Проверяем, нужно ли перезагружать данные
+  const shouldReload =
+      String(newQuery.page || '1') !== String(currentPage.value) ||
+      (newQuery.search || '') !== searchQuery.value ||
+      (newQuery.status || '') !== filterStatus.value;
+
+  if (shouldReload) {
+    initFromQuery();
+    loadSeries(currentPage.value);
+  }
 }, { deep: true });
 
 // Инициализация при монтировании

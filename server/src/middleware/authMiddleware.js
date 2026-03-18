@@ -29,9 +29,9 @@ export const generateToken = (admin) => {
 
 export const authenticateAdmin = (req, res, next) => {
     try {
-        console.log('🔐 Auth middleware check:');
+        /*console.log('🔐 Auth middleware check:');
         console.log('🍪 Все cookies:', req.cookies);
-        console.log('🔑 Ищем cookie:', COOKIE_NAME);
+        console.log('🔑 Ищем cookie:', COOKIE_NAME);*/
 
         // Пробуем получить токен из разных мест
         let token = req.cookies?.[COOKIE_NAME];
@@ -41,27 +41,27 @@ export const authenticateAdmin = (req, res, next) => {
             const authHeader = req.headers.authorization;
             if (authHeader.startsWith('Bearer ')) {
                 token = authHeader.substring(7);
-                console.log('📦 Токен из Authorization header');
+                // console.log('📦 Токен из Authorization header');
             }
         }
 
         if (!token) {
-            console.log('❌ Токен не найден');
+            // console.log('❌ Токен не найден');
             return res.status(401).json({
                 success: false,
                 error: 'Не авторизован'
             });
         }
 
-        console.log('✅ Токен найден:', token.substring(0, 20) + '...');
+        // console.log('✅ Токен найден:', token.substring(0, 20) + '...');
 
         const decoded = jwt.verify(token, JWT_SECRET);
-        console.log('✅ Токен верифицирован:', decoded);
+        // console.log('✅ Токен верифицирован:', decoded);
 
         req.admin = decoded;
         next();
     } catch (error) {
-        console.error('❌ Auth middleware error:', error);
+        // console.error('❌ Auth middleware error:', error);
 
         if (error.name === 'JsonWebTokenError') {
             return res.status(401).json({

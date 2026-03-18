@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import SeriesController from '../controllers/seriesController.js';
+import {excludeContentController} from "../controllers/mainController.js";
 
 const router = Router();
 const seriesController = new SeriesController();
@@ -9,6 +10,7 @@ router.get('/', seriesController.getAllSeries);
 router.get('/search', seriesController.searchSeries);
 router.get('/popular', seriesController.getPopularSeries);
 router.get('/in-production', seriesController.getInProductionSeries);
+router.post('/exclude/:id', excludeContentController);
 
 // Маршруты с параметрами
 router.get('/genre/:genreId', seriesController.getSeriesByGenre);

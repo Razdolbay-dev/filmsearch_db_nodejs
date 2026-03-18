@@ -26,14 +26,34 @@
           />
         </div>
         <div class="flex gap-2">
-          <select v-model="filterYear" class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <select
+              v-model="filterYear"
+              @change="applyYearFilter"
+              class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
             <option value="">Все года</option>
             <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
           </select>
-          <select v-model="filterGenre" class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <select
+              v-model="filterGenre"
+              @change="applyGenreFilter"
+              class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
             <option value="">Все жанры</option>
             <option v-for="genre in genres" :key="genre.id" :value="genre.id">{{ genre.name }}</option>
           </select>
+
+          <!-- Кнопка сброса фильтров -->
+          <button
+              v-if="searchQuery || filterYear || filterGenre"
+              @click="clearFilters"
+              class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition flex items-center"
+              title="Сбросить все фильтры"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -62,7 +82,7 @@
             <td class="px-6 py-4 text-sm text-gray-500">{{ movie.id }}</td>
             <td class="px-6 py-4">
               <img v-if="movie.poster_path"
-                   :src="`https://image.tmdb.org/t/p/w92${movie.poster_path}`"
+                   :src="`/images/posters${movie.poster_path}`"
                    class="w-12 h-16 object-cover rounded">
               <div v-else class="w-12 h-16 bg-gray-200 rounded flex items-center justify-center">
                 <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,6 +111,19 @@
                 <button @click="confirmDelete(movie)" class="text-red-600 hover:text-red-800">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+                <!-- Кнопка исключения фильма -->
+                <button @click="excludeMovie(movie)"
+                        class="text-orange-600 hover:text-orange-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        :disabled="excludingMovieId === movie.id"
+                        title="Исключить из синхронизации (добавить в blacklist)">
+                  <svg v-if="excludingMovieId === movie.id" class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                   </svg>
                 </button>
               </div>
@@ -229,12 +262,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { adminApi } from '@/api/admin.client';
 import { apiClient } from '@/api/client';
 import Pagination from '@/components/Pagination.vue';
 import { debounce } from 'lodash-es';
+import { excludeApi } from "@/api/content.client.js";
 
 const router = useRouter();
 const route = useRoute();
@@ -250,6 +284,9 @@ const searchQuery = ref('');
 const filterYear = ref('');
 const filterGenre = ref('');
 const selectedMovie = ref(null);
+
+// Состояние для отслеживания исключаемого фильма
+const excludingMovieId = ref(null);
 
 // Данные для фильтров
 const years = ref([]);
@@ -274,7 +311,7 @@ const movieForm = ref({
   status: 'Released'
 });
 
-// ** ИНИЦИАЛИЗАЦИЯ ИЗ QUERY ПАРАМЕТРОВ **
+// ИНИЦИАЛИЗАЦИЯ ИЗ QUERY ПАРАМЕТРОВ
 const initFromQuery = () => {
   const query = route.query;
 
@@ -314,7 +351,7 @@ const initFromQuery = () => {
   });
 };
 
-// ** ОБНОВЛЕНИЕ QUERY ПАРАМЕТРОВ **
+// ОБНОВЛЕНИЕ QUERY ПАРАМЕТРОВ
 const updateQueryParams = () => {
   const query = {};
 
@@ -347,15 +384,19 @@ const loadMovies = async (page = currentPage.value) => {
 
     if (searchQuery.value) {
       // Поиск
+      console.log('🔍 Поиск фильмов:', searchQuery.value);
       response = await apiClient.searchMovies(searchQuery.value, page);
     } else if (filterYear.value) {
       // Фильтр по году
+      console.log('📅 Фильтр по году:', filterYear.value);
       response = await apiClient.getMoviesByYear(filterYear.value, page);
     } else if (filterGenre.value) {
       // Фильтр по жанру
+      console.log('🎭 Фильтр по жанру:', filterGenre.value);
       response = await apiClient.getMoviesByGenre(filterGenre.value, page);
     } else {
       // Все фильмы
+      console.log('📋 Все фильмы, страница:', page);
       response = await apiClient.getMovies(page);
     }
 
@@ -378,7 +419,7 @@ const loadFilterData = async () => {
     const currentYear = new Date().getFullYear();
     years.value = Array.from({ length: 20 }, (_, i) => currentYear - i);
 
-    // Жанры (можно загрузить с API)
+    // Жанры
     genres.value = [
       { id: 28, name: 'Боевик' },
       { id: 12, name: 'Приключения' },
@@ -410,10 +451,16 @@ const goToMovieDetails = (id) => {
   router.push(`/movies/${id}`);
 };
 
-const handleSearch = debounce(() => {
+const handleSearch = () => {
   currentPage.value = 1;
+  filterYear.value = '';
+  filterGenre.value = '';
   updateQueryParams();
   loadMovies(1);
+};
+
+const debouncedSearch = debounce(() => {
+  handleSearch();
 }, 500);
 
 const applyYearFilter = () => {
@@ -516,11 +563,58 @@ const deleteMovie = async () => {
   }
 };
 
+// Метод исключения фильма
+const excludeMovie = async (movie) => {
+  // Спрашиваем подтверждение
+  const confirmed = await new Promise((resolve) => {
+    if (confirm(`Вы уверены, что хотите исключить фильм "${movie.title}" из синхронизации?\n\nЭто действие:\n• Удалит фильм из базы данных\n• Добавит его TMDB ID в blacklist\n• При следующей синхронизации он не загрузится`)) {
+      resolve(true);
+    } else {
+      resolve(false);
+    }
+  });
+
+  if (!confirmed) return;
+
+  // Устанавливаем ID исключаемого фильма для отображения спиннера
+  excludingMovieId.value = movie.id;
+
+  try {
+    const response = await excludeApi.excludeMovie(movie.id);
+
+    if (response.success) {
+      // Убираем фильм из текущего списка
+      movies.value = movies.value.filter(m => m.id !== movie.id);
+
+      // Можно показать уведомление (если есть система уведомлений)
+      alert('✅ Фильм успешно исключён из синхронизации');
+    } else {
+      throw new Error(response.message || 'Ошибка при исключении');
+    }
+  } catch (error) {
+    console.error('Error excluding movie:', error);
+    alert(`❌ Ошибка: ${error.message}`);
+  } finally {
+    // Сбрасываем ID исключаемого фильма
+    excludingMovieId.value = null;
+  }
+};
+
 // Следим за изменениями query параметров
 watch(() => route.query, (newQuery) => {
   console.log('🔍 Movies: изменение query:', newQuery);
-  initFromQuery();
-  loadMovies(currentPage.value);
+
+  // Проверяем, нужно ли перезагружать данные
+  const shouldReload =
+      String(newQuery.page || '1') !== String(currentPage.value) ||
+      (newQuery.search || '') !== searchQuery.value ||
+      (newQuery.year || '') !== filterYear.value ||
+      (newQuery.genre || '') !== filterGenre.value;
+
+  if (shouldReload) {
+    initFromQuery();
+    loadMovies(currentPage.value);
+  }
 }, { deep: true });
 
 // Инициализация при монтировании

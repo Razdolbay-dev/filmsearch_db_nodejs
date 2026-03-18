@@ -97,6 +97,61 @@ class AdminApiClient {
             body: JSON.stringify({ oldPassword, newPassword })
         });
     }
+
+    /**
+     * Исключить контент из синхронизации (добавить в blacklist)
+     * @param {number} tmdbId - ID контента из TMDB
+     * @param {'movie'|'series'} mediaType - тип контента
+     * @returns {Promise<{success: boolean, message: string}>}
+     */
+    async excludeContent(tmdbId, mediaType) {
+        // Используем маршрут /api/movies/exclude/:id (он универсальный)
+        // Так как у нас baseUrl = /api/admin, а нужен /api/movies/exclude/:id
+        // Сделаем запрос напрямую к API без /admin префикса
+
+        const url = `${API_BASE_URL}/movies/exclude/${tmdbId}`;
+
+        console.log('🎬 Excluding content:', { tmdbId, mediaType, url });
+
+        const response = await fetch(url, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({ media_type: mediaType })
+        });
+
+        let data;
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            const text = await response.text();
+            console.error('❌ Non-JSON response:', text.substring(0, 200));
+            throw new Error('Invalid server response from exclude endpoint');
+        }
+
+        if (!response.ok) {
+            throw new Error(data.message || data.error || 'Failed to exclude content');
+        }
+
+        return data;
+    }
+
+    // Альтернативный вариант: если хочешь использовать универсальный метод через request
+    // async excludeContentViaRequest(tmdbId, mediaType) {
+        // Этот метод будет использовать /api/admin/exclude-content
+        // Но тебе нужно будет добавить соответствующий маршрут на бэкенде
+    //     return this.request('/exclude-content', {
+    //         method: 'POST',
+    //         body: JSON.stringify({
+    //             tmdb_id: tmdbId,
+    //             media_type: mediaType
+    //         })
+    //     });
+    // }
 }
 
 export const adminApi = new AdminApiClient();
