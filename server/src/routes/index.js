@@ -16,6 +16,7 @@ import seriesRoutes from "./seriesRoutes.js";
 
 import infoRoutes from "./infoRoutes.js";
 import syncRoutes from "./syncRoutes.js";
+import torznabRoutes from "./torznabRoutes.js";
 
 const router = express.Router();
 
@@ -41,15 +42,15 @@ router.get('/', (req, res) => {
     });
 });
 // Маршрут для проверки конфигурации (опционально)
-router.use('/exports', exportsRoutes)
-router.use('/imports', importRoutes)
-
-router.use('/info', infoRoutes)
-router.use('/sync', syncRoutes)
-router.use('/tmdb_movies', tmdbMovieRoutes)
-router.use('/tmdb_series', tmdbSeriesRoutes)
-router.use('/movies', movieRoutes)
-router.use('/series', seriesRoutes)
+router.use('/exports', exportsRoutes);
+router.use('/imports', importRoutes);
+router.use('/torznab', torznabRoutes);
+router.use('/info', infoRoutes);
+router.use('/sync', syncRoutes);
+router.use('/tmdb_movies', tmdbMovieRoutes);
+router.use('/tmdb_series', tmdbSeriesRoutes);
+router.use('/movies', movieRoutes);
+router.use('/series', seriesRoutes);
 router.use('/cartoons', cartoonsRoutes);
 // Маршруты админки
 router.use('/admin', adminRoutes);

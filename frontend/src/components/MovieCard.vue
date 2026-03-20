@@ -26,16 +26,23 @@
 
       <button
           @click="$emit('view-details', movie.id)"
-          class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors"
+          class="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors"
       >
         Подробнее
       </button>
+
+      <!-- Torznab Search Component -->
+      <TorznabSearch
+          :movie="movie"
+          @download-track="handleDownloadTrack"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue';
+import TorznabSearch from './TorznabSearch.vue';
 
 const props = defineProps({
   movie: {
@@ -46,33 +53,83 @@ const props = defineProps({
 
 defineEmits(['view-details']);
 
-// Форматируем рейтинг с проверкой типа
 const formattedVoteAverage = computed(() => {
   if (!props.movie.vote_average && props.movie.vote_average !== 0) return props.movie.vote_average;
-
-  // Преобразуем в число, если это строка
   const voteAverage = parseFloat(props.movie.vote_average);
-
-  // Проверяем, что получилось валидное число
   if (isNaN(voteAverage)) return 'N/A';
-
   return voteAverage.toFixed(1);
 });
 
-// Форматируем год с проверкой
 const formattedYear = computed(() => {
   if (!props.movie.release_date) return 'N/A';
-
-  // Если release_date приходит как "2023-12-25" или подобное
   if (typeof props.movie.release_date === 'string' && props.movie.release_date.includes('-')) {
     return props.movie.release_date.split('-')[0];
   }
-
   return props.movie.release_date || 'N/A';
 });
 
-// Обработка ошибок загрузки изображений
 const handleImageError = (e) => {
   e.target.src = 'https://via.placeholder.com/500x750?text=No+Image';
 };
+
+const handleDownloadTrack = ({ movie, torrent, timestamp }) => {
+  console.log('Download tracked:', {
+    movieTitle: movie.title,
+    torrentTitle: torrent.Title,
+    quality: torrent.quality,
+    timestamp: timestamp
+  });
+
+  // Здесь можно добавить отправку аналитики
+  // или сохранение в историю загрузок
+};
 </script>
+
+<style scoped>
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Анимации для модального окна */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-enter-active {
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.modal-leave-active {
+  animation: modalFadeIn 0.2s ease-out reverse;
+}
+
+/* Стили для скроллбара */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+</style>

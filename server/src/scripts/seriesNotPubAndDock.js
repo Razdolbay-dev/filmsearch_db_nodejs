@@ -5,13 +5,14 @@ async function getSeriesIds() {
     const connection = await pool.getConnection();
 
     try {
+        // Поиск по дате
+        // SELECT id, name, original_name, first_air_date from tv_series
+        // where poster_path is null and first_air_date < '2020-01-01'
 
         // Выполняем запрос
         const [rows] = await connection.execute(`
-            SELECT s.id, s.name, s.original_name, s.published
-            FROM tv_series s
-                     JOIN tv_series_genres sg ON s.id = sg.series_id
-            WHERE sg.genre_id = 99 AND s.published = 0;
+            SELECT id, name, original_name, first_air_date from tv_series
+            where poster_path is null and first_air_date < '2020-01-01'
         `);
 
         // Получаем только id

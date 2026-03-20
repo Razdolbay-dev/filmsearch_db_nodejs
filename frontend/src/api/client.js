@@ -144,12 +144,104 @@ export const apiClient = {
         return request(`/series/seasons/${seasonId}/episodes`);
     },
 
-    // Получить текущий URL API (для отладки)
+    // ========== Torznab Methods ==========
+
+    /**
+     * Поиск торрентов через Torznab
+     * @param {Object} params - Параметры поиска
+     * @param {string} params.query - Прямой поисковый запрос
+     * @param {string} params.title - Название фильма/сериала
+     * @param {string} params.original_title - Оригинальное название
+     * @param {number} params.year - Год выпуска
+     * @param {string} params.release_date - Дата релиза
+     * @returns {Promise<Object>} - Результаты поиска
+     */
+    async searchTorrents({ query, title, original_title, year, release_date }) {
+        return request('/torznab/search', {
+            method: 'POST',
+            body: JSON.stringify({
+                query,
+                title,
+                original_title,
+                year,
+                release_date
+            })
+        });
+    },
+
+    /**
+     * Получение информации о торренте
+     * @param {string} id - ID торрента
+     * @param {string} link - Ссылка на торрент
+     * @returns {Promise<Object>} - Информация о торренте
+     */
+    async getTorrentInfo(id, link) {
+        return request(`/torznab/info/${id}${buildQueryString({ link })}`);
+    },
+
+    /**
+     * Проверка здоровья Torznab сервера
+     * @returns {Promise<Object>} - Статус сервера
+     */
+    async checkTorznabHealth() {
+        return request('/torznab/health');
+    },
+
+    /**
+     * Получение статистики поиска Torznab
+     * @returns {Promise<Object>} - Статистика
+     */
+    async getTorznabStats() {
+        return request('/torznab/stats');
+    },
+
+    /**
+     * Удобный метод для поиска торрентов по фильму
+     * @param {Object} movie - Объект фильма
+     * @returns {Promise<Object>} - Результаты поиска
+     */
+    async searchTorrentsForMovie(movie) {
+        return this.searchTorrents({
+            title: movie.title,
+            original_title: movie.original_title,
+            year: movie.release_date ? new Date(movie.release_date).getFullYear() : null,
+            release_date: movie.release_date
+        });
+    },
+
+    /**
+     * Удобный метод для поиска торрентов по сериалу
+     * @param {Object} series - Объект сериала
+     * @param {number} season - Номер сезона (опционально)
+     * @returns {Promise<Object>} - Результаты поиска
+     */
+    async searchTorrentsForSeries(series, season = null) {
+        let query = series.name;
+        if (series.original_name && series.original_name !== series.name) {
+            query += ` ${series.original_name}`;
+        }
+        if (series.first_air_date) {
+            query += ` ${new Date(series.first_air_date).getFullYear()}`;
+        }
+        if (season) {
+            query += ` S${season.toString().padStart(2, '0')}`;
+        }
+
+        return this.searchTorrents({ query });
+    },
+
+    // ========== Utility Methods ==========
+
+    /**
+     * Получить текущий URL API (для отладки)
+     */
     getCurrentApiUrl() {
         return getApiBaseUrl();
     },
 
-    // Проверка соединения с API
+    /**
+     * Проверка соединения с API
+     */
     async checkConnection() {
         try {
             const baseUrl = getApiBaseUrl().replace('/api', '');
@@ -161,5 +253,31 @@ export const apiClient = {
         } catch {
             return false;
         }
+    },
+
+    /**
+     * Проверка всех сервисов (основной API и Torznab)
+     */
+    async checkAllServices() {
+        const results = {
+            mainApi: false,
+            torznab: false,
+            timestamp: new Date().toISOString()
+        };
+
+        try {
+            results.mainApi = await this.checkConnection();
+        } catch (error) {
+            console.error('Main API check failed:', error);
+        }
+
+        try {
+            const torznabHealth = await this.checkTorznabHealth();
+            results.torznab = torznabHealth.success && torznabHealth.status === 'healthy';
+        } catch (error) {
+            console.error('Torznab health check failed:', error);
+        }
+
+        return results;
     }
 };

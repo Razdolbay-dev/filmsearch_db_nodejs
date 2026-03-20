@@ -35,16 +35,23 @@
 
       <button
           @click="$emit('view-details', series.id)"
-          class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors"
+          class="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors"
       >
         Подробнее
       </button>
+
+      <!-- Torznab Search Component for Series -->
+      <TorznabSearchSeries
+          :series="series"
+          @download-track="handleDownloadTrack"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue';
+import TorznabSearchSeries from './TorznabSearchSeries.vue';
 
 const props = defineProps({
   series: {
@@ -76,4 +83,26 @@ const formattedYearRange = computed(() => {
 const handleImageError = (e) => {
   e.target.src = 'https://via.placeholder.com/500x750?text=No+Image';
 };
+
+const handleDownloadTrack = ({ series, torrent, timestamp, season }) => {
+  console.log('Download tracked:', {
+    seriesTitle: series.name,
+    torrentTitle: torrent.Title,
+    quality: torrent.quality,
+    season: season,
+    timestamp: timestamp
+  });
+
+  // Здесь можно добавить отправку аналитики
+  // или сохранение в историю загрузок
+};
 </script>
+
+<style scoped>
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+</style>
