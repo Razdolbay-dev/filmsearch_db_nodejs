@@ -52,112 +52,145 @@
       </div>
     </div>
 
-    <!-- Таблица сериалов -->
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-      <div v-if="loading" class="flex justify-center py-12">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    <!-- Счетчик сериалов и индикатор загрузки -->
+    <div class="flex justify-between items-center mb-4">
+      <div class="text-sm text-gray-600">
+        Показано {{ series.length }} сериалов
+        <span v-if="hasMore" class="ml-2 text-gray-400">(загружено {{ loadedPages }} из {{ totalPages }})</span>
+      </div>
+      <div v-if="loading && !initialLoading" class="text-blue-600 text-sm">
+        Загрузка...
+      </div>
+    </div>
+
+    <!-- Сетка карточек сериалов -->
+    <div class="relative min-h-[400px]">
+      <!-- Индикатор первоначальной загрузки -->
+      <div v-if="initialLoading" class="flex justify-center py-20">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
       </div>
 
-      <div v-else-if="series.length" class="overflow-x-auto">
-        <table class="w-full">
-          <thead class="bg-gray-50">
-          <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Постер</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Страна</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Годы</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Сезонов</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Рейтинг</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
-          </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-200">
-          <tr v-for="item in series" :key="item.id" class="hover:bg-gray-50">
-            <td class="px-6 py-4 text-sm text-gray-500">{{ item.id }}</td>
-            <td class="px-6 py-4">
-              <img v-if="item.poster_path"
-                   :src="`/images/posters${item.poster_path}`"
-                   class="w-12 h-16 object-cover rounded">
-              <div v-else class="w-12 h-16 bg-gray-200 rounded flex items-center justify-center">
-                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-            </td>
-            <td class="px-6 py-4">
-              <div class="font-medium">
-                <a @click="goToSeriesDetails(item.id)" class="cursor-pointer hover:text-blue-600">{{ item.name }}</a>
-              </div>
-              <div class="text-sm text-gray-500">{{ item.original_name }}</div>
-            </td>
-            <td class="px-6 py-4">
-              <div class="text-sm text-gray-500">{{ item.original_language }}</div>
-            </td>
-            <td class="px-6 py-4 text-sm">
-              {{ item.first_air_date?.split('-')[0] || 'N/A' }} -
-              {{ item.last_air_date?.split('-')[0] || 'н.в.' }}
-            </td>
-            <td class="px-6 py-4 text-sm">{{ item.number_of_seasons || 0 }}</td>
-            <td class="px-6 py-4">
-                <span class="px-2 py-1 rounded text-sm"
-                      :class="{
-                        'bg-green-100 text-green-800': item.status === 'Returning Series',
-                        'bg-gray-100 text-gray-800': item.status === 'Ended',
-                        'bg-blue-100 text-blue-800': item.status === 'In Production'
-                      }">
-                  {{ item.status || 'N/A' }}
-                </span>
-            </td>
-            <td class="px-6 py-4">
-                <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm">
-                  ★ {{ Number(item.vote_average).toFixed(1) }}
-                </span>
-            </td>
-            <td class="px-6 py-4">
-              <div class="flex space-x-2">
-                <button @click="editSeries(item)" class="text-blue-600 hover:text-blue-800">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
-                <button @click="manageSeasons(item)" class="text-green-600 hover:text-green-800">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                  </svg>
-                </button>
-                <!-- Кнопка исключения сериала -->
-                <button @click="excludeSeries(item)"
-                        class="text-orange-600 hover:text-orange-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                        :disabled="excludingSeriesId === item.id"
-                        title="Исключить из синхронизации (добавить в blacklist)">
-                  <svg v-if="excludingSeriesId === item.id" class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                  </svg>
-                </button>
-              </div>
-            </td>
-          </tr>
-          </tbody>
-        </table>
+      <!-- Сетка сериалов -->
+      <div v-else-if="series.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div
+            v-for="item in series"
+            :key="item.id"
+            class="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col"
+        >
+          <!-- Постер -->
+          <div class="relative aspect-[2/3] bg-gray-200 cursor-pointer" @click="goToSeriesDetails(item.id)">
+            <img
+                v-if="item.poster_path"
+                :src="`/images/posters${item.poster_path}`"
+                :alt="item.name"
+                class="w-full h-full object-cover"
+            />
+            <div v-else class="w-full h-full flex items-center justify-center">
+              <svg class="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
 
-        <!-- Пагинация -->
-        <div class="px-6 py-4 border-t">
-          <Pagination
-              :current-page="currentPage"
-              :total-pages="totalPages"
-              @page-change="changePage"
-          />
+            <!-- Рейтинг на постере -->
+            <div class="absolute top-2 right-2 bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-sm font-bold shadow-lg">
+              ★ {{ Number(item.vote_average).toFixed(1) }}
+            </div>
+
+            <!-- Статус на постере -->
+            <div class="absolute top-2 left-2">
+              <span class="px-2 py-1 rounded-full text-xs font-bold shadow-lg"
+                    :class="{
+                      'bg-green-100 text-green-800': item.status === 'Returning Series',
+                      'bg-gray-100 text-gray-800': item.status === 'Ended',
+                      'bg-blue-100 text-blue-800': item.status === 'In Production'
+                    }">
+                {{ item.status === 'Returning Series' ? 'Возвращается' :
+                  item.status === 'Ended' ? 'Завершен' :
+                      item.status === 'In Production' ? 'В производстве' : item.status }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Информация о сериале -->
+          <div class="p-4 flex-grow">
+            <h3 class="font-bold text-lg mb-1 line-clamp-1">
+              <a @click="goToSeriesDetails(item.id)" class="cursor-pointer hover:text-blue-600">
+                {{ item.name }}
+              </a>
+            </h3>
+            <p class="text-sm text-gray-600 mb-2 line-clamp-1">{{ item.original_name }}</p>
+
+            <div class="flex flex-wrap gap-2 mb-3 text-sm">
+              <span class="bg-gray-100 px-2 py-1 rounded">
+                {{ item.first_air_date?.split('-')[0] || 'N/A' }} —
+                {{ item.last_air_date?.split('-')[0] || 'н.в.' }}
+              </span>
+              <span class="bg-gray-100 px-2 py-1 rounded">
+                {{ item.original_language?.toUpperCase() }}
+              </span>
+              <span class="bg-gray-100 px-2 py-1 rounded">
+                📺 {{ item.number_of_seasons || 0 }} сез.
+              </span>
+              <span class="bg-gray-100 px-2 py-1 rounded">
+                📼 {{ item.number_of_episodes || 0 }} эп.
+              </span>
+            </div>
+
+            <p v-if="item.overview" class="text-sm text-gray-700 line-clamp-3 mb-3">
+              {{ item.overview }}
+            </p>
+          </div>
+
+          <!-- Действия -->
+          <div class="px-4 py-3 bg-gray-50 border-t flex justify-end space-x-2">
+            <button @click="editSeries(item)" class="text-blue-600 hover:text-blue-800 p-2" title="Редактировать">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button @click="manageSeasons(item)" class="text-green-600 hover:text-green-800 p-2" title="Управление сезонами">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+            </button>
+            <button @click="confirmDelete(item)" class="text-red-600 hover:text-red-800 p-2" title="Удалить">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+            <button @click="excludeSeries(item)"
+                    class="text-orange-600 hover:text-orange-800 disabled:opacity-50 disabled:cursor-not-allowed p-2"
+                    :disabled="excludingSeriesId === item.id"
+                    title="Исключить из синхронизации">
+              <svg v-if="excludingSeriesId === item.id" class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
-      <div v-else class="text-center py-12 text-gray-500">
-        Сериалы не найдены
+      <!-- Пустое состояние -->
+      <div v-else-if="!initialLoading" class="text-center py-20 text-gray-500 bg-white rounded-lg shadow">
+        <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+        </svg>
+        <p class="text-xl">Сериалы не найдены</p>
+        <p class="text-gray-400 mt-2">Попробуйте изменить параметры поиска</p>
+      </div>
+
+      <!-- Индикатор загрузки при скролле -->
+      <div v-if="loadingMore" class="flex justify-center py-8">
+        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+      </div>
+
+      <!-- Сообщение о конце списка -->
+      <div v-if="!hasMore && series.length > 0" class="text-center py-8 text-gray-500">
+        Больше сериалов нет
       </div>
     </div>
 
@@ -288,24 +321,27 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { apiClient } from '@/api/client';
 import { adminApi } from '@/api/admin.client';
-import Pagination from '@/components/Pagination.vue';
-import { debounce } from 'lodash-es';
 import { excludeApi } from "@/api/content.client.js";
+import { debounce } from 'lodash-es';
 
 const router = useRouter();
 const route = useRoute();
 
-// Состояние
+// Состояние для бесконечной прокрутки
 const series = ref([]);
 const loading = ref(true);
-const saving = ref(false);
-const deleting = ref(false);
+const loadingMore = ref(false);
+const initialLoading = ref(true);
 const currentPage = ref(1);
 const totalPages = ref(1);
+const hasMore = ref(true);
+const loadedPages = ref(1);
+
+// Поиск и фильтры
 const searchQuery = ref('');
 const filterStatus = ref('');
 const selectedSeries = ref(null);
@@ -331,45 +367,32 @@ const seriesForm = ref({
   in_production: false
 });
 
-// ** ИНИЦИАЛИЗАЦИЯ ИЗ QUERY ПАРАМЕТРОВ **
+// ИНИЦИАЛИЗАЦИЯ ИЗ QUERY ПАРАМЕТРОВ
 const initFromQuery = () => {
   const query = route.query;
 
-  // Восстанавливаем страницу
-  if (query.page) {
-    currentPage.value = parseInt(query.page);
-  } else {
-    currentPage.value = 1;
-  }
+  // Сбрасываем список сериалов
+  series.value = [];
+  currentPage.value = 1;
+  loadedPages.value = 1;
+  hasMore.value = true;
 
-  // Восстанавливаем поиск
   if (query.search) {
     searchQuery.value = query.search;
   } else {
     searchQuery.value = '';
   }
 
-  // Восстанавливаем фильтр по статусу
   if (query.status) {
     filterStatus.value = query.status;
   } else {
     filterStatus.value = '';
   }
-
-  console.log('📌 Series: инициализация из URL:', {
-    page: currentPage.value,
-    search: searchQuery.value,
-    status: filterStatus.value
-  });
 };
 
-// ** ОБНОВЛЕНИЕ QUERY ПАРАМЕТРОВ **
+// ОБНОВЛЕНИЕ QUERY ПАРАМЕТРОВ
 const updateQueryParams = () => {
   const query = {};
-
-  if (currentPage.value > 1) {
-    query.page = currentPage.value;
-  }
 
   if (searchQuery.value) {
     query.search = searchQuery.value;
@@ -379,87 +402,80 @@ const updateQueryParams = () => {
     query.status = filterStatus.value;
   }
 
-  console.log('🔄 Series: обновление URL:', query);
-
   router.replace({ query });
 };
 
 // Загрузка сериалов
-const loadSeries = async (page = currentPage.value) => {
-  loading.value = true;
+const loadSeries = async (page = 1, append = false) => {
+  if (!append) {
+    loading.value = true;
+    initialLoading.value = true;
+  } else {
+    loadingMore.value = true;
+  }
+
   try {
     let response;
 
     if (searchQuery.value) {
-      // Поиск
-      console.log('🔍 Поиск сериалов:', searchQuery.value);
       response = await apiClient.searchSeries(searchQuery.value, page);
     } else if (filterStatus.value === 'In Production') {
-      // В производстве
-      console.log('🎬 Фильтр: в производстве');
       response = await apiClient.getInProductionSeries(page);
-    } else if (filterStatus.value) {
-      // Фильтр по статусу (если API поддерживает)
-      console.log('📋 Фильтр по статусу:', filterStatus.value);
-      // Если API не поддерживает фильтр по статусу, показываем все
-      response = await apiClient.getSeries(page);
     } else {
-      // Все сериалы
-      console.log('📋 Все сериалы, страница:', page);
       response = await apiClient.getSeries(page);
     }
 
-    console.log('📦 Ответ от API:', response);
-
     if (response.success) {
-      // Обрабатываем разные форматы ответа
+      let newSeries = [];
+      let pagination = { pages: 1 };
+
       if (response.data && Array.isArray(response.data)) {
-        series.value = response.data;
-        totalPages.value = response.pagination?.pages || 1;
+        newSeries = response.data;
+        pagination = response.pagination || { pages: 1 };
       } else if (response.data && response.data.data) {
-        series.value = response.data.data;
-        totalPages.value = response.data.pagination?.pages || 1;
+        newSeries = response.data.data;
+        pagination = response.data.pagination || { pages: 1 };
       } else if (Array.isArray(response)) {
-        series.value = response;
-        totalPages.value = 1;
-      } else {
-        series.value = [];
-        totalPages.value = 1;
+        newSeries = response;
+        pagination = { pages: 1 };
       }
-      currentPage.value = page;
-    } else {
-      console.error('Ответ API не содержит success: true');
+
+      if (append) {
+        series.value = [...series.value, ...newSeries];
+      } else {
+        series.value = newSeries;
+      }
+
+      totalPages.value = pagination.pages || 1;
+      hasMore.value = page < totalPages.value;
+      loadedPages.value = page;
     }
   } catch (error) {
     console.error('Error loading series:', error);
   } finally {
     loading.value = false;
+    initialLoading.value = false;
+    loadingMore.value = false;
   }
 };
 
-// Обработчики
-const goToSeriesDetails = (id) => {
-  router.push(`/series/${id}`);
-};
-
-// Исправленный handleSearch
+// Обработчики фильтров
 const handleSearch = () => {
   currentPage.value = 1;
   filterStatus.value = '';
   updateQueryParams();
-  loadSeries(1);
+  loadSeries(1, false);
 };
 
 const debouncedSearch = debounce(() => {
   handleSearch();
 }, 500);
 
-// Исправленный applyStatusFilter
 const applyStatusFilter = () => {
   currentPage.value = 1;
   searchQuery.value = '';
   updateQueryParams();
-  loadSeries(1);
+  loadSeries(1, false);
 };
 
 const clearFilters = () => {
@@ -467,14 +483,32 @@ const clearFilters = () => {
   filterStatus.value = '';
   currentPage.value = 1;
   updateQueryParams();
-  loadSeries(1);
+  loadSeries(1, false);
 };
 
-const changePage = (page) => {
-  currentPage.value = page;
-  updateQueryParams();
-  loadSeries(page);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+// Бесконечная прокрутка
+const handleScroll = () => {
+  if (loadingMore.value || !hasMore.value) return;
+
+  const scrollY = window.scrollY;
+  const windowHeight = window.innerHeight;
+  const documentHeight = document.documentElement.scrollHeight;
+
+  if (scrollY + windowHeight >= documentHeight - 300) {
+    if (currentPage.value < totalPages.value) {
+      currentPage.value++;
+      loadSeries(currentPage.value, true);
+    }
+  }
+};
+
+// Навигация
+const goToSeriesDetails = (id) => {
+  router.push(`/series/${id}`);
+};
+
+const manageSeasons = (item) => {
+  router.push(`/admin/series/${item.id}/seasons`);
 };
 
 // CRUD операции
@@ -482,10 +516,6 @@ const editSeries = (item) => {
   selectedSeries.value = item;
   seriesForm.value = { ...item };
   showEditModal.value = true;
-};
-
-const manageSeasons = (item) => {
-  router.push(`/admin/series/${item.id}/seasons`);
 };
 
 const confirmDelete = (item) => {
@@ -550,31 +580,29 @@ const deleteSeries = async () => {
   }
 };
 
-// Метод исключения сериала
-const excludeSeries = async (series) => {
-  // Спрашиваем подтверждение
-  const confirmed = await new Promise((resolve) => {
-    if (confirm(`Вы уверены, что хотите исключить сериал "${series.name}" из синхронизации?\n\nЭто действие:\n• Удалит сериал из базы данных\n• Удалит все сезоны и эпизоды\n• Добавит его TMDB ID в blacklist\n• При следующей синхронизации он не загрузится`)) {
-      resolve(true);
-    } else {
-      resolve(false);
-    }
-  });
+// Метод исключения сериала - УПРОЩЕННАЯ ВЕРСИЯ
+const excludeSeries = async (item) => {
+  if (!item || !item.id) {
+    alert('❌ Ошибка: некорректные данные сериала');
+    return;
+  }
 
-  if (!confirmed) return;
+  const seriesName = item?.name || item?.original_name || 'Неизвестный сериал';
 
-  // Устанавливаем ID исключаемого сериала для отображения спиннера
-  excludingSeriesId.value = series.id;
+  if (!confirm(`Вы уверены, что хотите исключить сериал "${seriesName}" из синхронизации?`)) {
+    return;
+  }
+
+  excludingSeriesId.value = item.id;
 
   try {
-    const response = await excludeApi.excludeSeries(series.id);
+    const response = await excludeApi.excludeSeries(item.id);
 
     if (response.success) {
-      // Просто показываем сообщение об успехе
+      // Просто удаляем сериал из локального массива
+      // Обратите внимание: здесь series, а не series.value
+      series.value = series.value.filter(s => s.id !== item.id);
       alert('✅ Сериал успешно исключён из синхронизации');
-
-      // Перезагружаем список
-      await loadSeries(currentPage.value);
     } else {
       throw new Error(response.message || 'Ошибка при исключении');
     }
@@ -582,30 +610,62 @@ const excludeSeries = async (series) => {
     console.error('Error excluding series:', error);
     alert(`❌ Ошибка: ${error.message}`);
   } finally {
-    // Сбрасываем ID исключаемого сериала
     excludingSeriesId.value = null;
   }
 };
 
 // Следим за изменениями query параметров
 watch(() => route.query, (newQuery) => {
-  console.log('🔍 Series: изменение query:', newQuery);
-
-  // Проверяем, нужно ли перезагружать данные
   const shouldReload =
-      String(newQuery.page || '1') !== String(currentPage.value) ||
       (newQuery.search || '') !== searchQuery.value ||
       (newQuery.status || '') !== filterStatus.value;
 
   if (shouldReload) {
     initFromQuery();
-    loadSeries(currentPage.value);
+    loadSeries(1, false);
   }
 }, { deep: true });
 
-// Инициализация при монтировании
+// Инициализация
 onMounted(() => {
   initFromQuery();
-  loadSeries(currentPage.value);
+  loadSeries(1, false);
+  window.addEventListener('scroll', handleScroll);
+});
+
+// Очистка
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll);
 });
 </script>
+
+<style scoped>
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.grid > div {
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+</style>

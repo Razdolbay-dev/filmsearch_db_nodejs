@@ -58,99 +58,126 @@
       </div>
     </div>
 
-    <!-- Таблица фильмов -->
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-      <div v-if="loading" class="flex justify-center py-12">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    <!-- Счетчик фильмов и индикатор загрузки -->
+    <div class="flex justify-between items-center mb-4">
+      <div class="text-sm text-gray-600">
+        Показано {{ movies.length }} фильмов
+        <span v-if="hasMore" class="ml-2 text-gray-400">(загружено {{ loadedPages }} из ?)</span>
       </div>
-
-      <div v-else-if="movies.length" class="overflow-x-auto">
-        <table class="w-full">
-          <thead class="bg-gray-50">
-          <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Постер</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Страна</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Год</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Рейтинг</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Популярность</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
-          </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-200">
-          <tr v-for="movie in movies" :key="movie.id" class="hover:bg-gray-50">
-            <td class="px-6 py-4 text-sm text-gray-500">{{ movie.id }}</td>
-            <td class="px-6 py-4">
-              <img v-if="movie.poster_path"
-                   :src="`/images/posters${movie.poster_path}`"
-                   class="w-12 h-16 object-cover rounded">
-              <div v-else class="w-12 h-16 bg-gray-200 rounded flex items-center justify-center">
-                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-            </td>
-            <td class="px-6 py-4">
-              <div class="font-medium"><a @click="goToMovieDetails(movie.id)" class="cursor-pointer hover:text-blue-600">{{ movie.title }}</a></div>
-              <div class="text-sm text-gray-500">{{ movie.original_title }}</div>
-            </td>
-            <td class="px-6 py-4">
-              <div class="ext-sm text-gray-500">{{ movie.original_language }}</div>
-            </td>
-            <td class="px-6 py-4 text-sm">{{ movie.release_date?.split('-')[0] || 'N/A' }}</td>
-            <td class="px-6 py-4">
-                <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm">
-                  ★ {{ Number(movie.vote_average).toFixed(1) }}
-                </span>
-            </td>
-            <td class="px-6 py-4 text-sm">{{ Number(movie.popularity).toFixed(1) }}</td>
-            <td class="px-6 py-4">
-              <div class="flex space-x-2">
-                <button @click="editMovie(movie)" class="text-blue-600 hover:text-blue-800">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
-                <button @click="confirmDelete(movie)" class="text-red-600 hover:text-red-800">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-                <!-- Кнопка исключения фильма -->
-                <button @click="excludeMovie(movie)"
-                        class="text-orange-600 hover:text-orange-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                        :disabled="excludingMovieId === movie.id"
-                        title="Исключить из синхронизации (добавить в blacklist)">
-                  <svg v-if="excludingMovieId === movie.id" class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                  </svg>
-                </button>
-              </div>
-            </td>
-          </tr>
-          </tbody>
-        </table>
-
-        <!-- Пагинация -->
-        <div class="px-6 py-4 border-t">
-          <Pagination
-              :current-page="currentPage"
-              :total-pages="totalPages"
-              @page-change="changePage"
-          />
-        </div>
-      </div>
-
-      <div v-else class="text-center py-12 text-gray-500">
-        Фильмы не найдены
+      <div v-if="loading && !initialLoading" class="text-blue-600 text-sm">
+        Загрузка...
       </div>
     </div>
 
+    <!-- Сетка карточек фильмов -->
+    <div class="relative min-h-[400px]">
+      <!-- Индикатор первоначальной загрузки -->
+      <div v-if="initialLoading" class="flex justify-center py-20">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+      </div>
+
+      <!-- Сетка фильмов -->
+      <div v-else-if="movies.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div
+            v-for="movie in movies"
+            :key="movie.id"
+            class="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col"
+        >
+          <!-- Постер -->
+          <div class="relative aspect-[2/3] bg-gray-200 cursor-pointer" @click="goToMovieDetails(movie.id)">
+            <img
+                v-if="movie.poster_path"
+                :src="`/images/posters${movie.poster_path}`"
+                :alt="movie.title"
+                class="w-full h-full object-cover"
+            />
+            <div v-else class="w-full h-full flex items-center justify-center">
+              <svg class="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+
+            <!-- Рейтинг на постере -->
+            <div class="absolute top-2 right-2 bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-sm font-bold shadow-lg">
+              ★ {{ Number(movie.vote_average).toFixed(1) }}
+            </div>
+          </div>
+
+          <!-- Информация о фильме -->
+          <div class="p-4 flex-grow">
+            <h3 class="font-bold text-lg mb-1 line-clamp-1">
+              <a @click="goToMovieDetails(movie.id)" class="cursor-pointer hover:text-blue-600">
+                {{ movie.title }}
+              </a>
+            </h3>
+            <p class="text-sm text-gray-600 mb-2 line-clamp-1">{{ movie.original_title }}</p>
+
+            <div class="flex flex-wrap gap-2 mb-3 text-sm">
+              <span class="bg-gray-100 px-2 py-1 rounded">
+                {{ movie.release_date?.split('-')[0] || 'N/A' }}
+              </span>
+              <span class="bg-gray-100 px-2 py-1 rounded">
+                {{ movie.original_language?.toUpperCase() }}
+              </span>
+              <span class="bg-gray-100 px-2 py-1 rounded">
+                👁 {{ Number(movie.popularity).toFixed(0) }}
+              </span>
+            </div>
+
+            <p v-if="movie.overview" class="text-sm text-gray-700 line-clamp-3 mb-3">
+              {{ movie.overview }}
+            </p>
+          </div>
+
+          <!-- Действия -->
+          <div class="px-4 py-3 bg-gray-50 border-t flex justify-end space-x-2">
+            <button @click="editMovie(movie)" class="text-blue-600 hover:text-blue-800 p-2" title="Редактировать">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button @click="confirmDelete(movie)" class="text-red-600 hover:text-red-800 p-2" title="Удалить">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+            <button @click="excludeMovie(movie)"
+                    class="text-orange-600 hover:text-orange-800 disabled:opacity-50 disabled:cursor-not-allowed p-2"
+                    :disabled="excludingMovieId === movie.id"
+                    title="Исключить из синхронизации">
+              <svg v-if="excludingMovieId === movie.id" class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Пустое состояние -->
+      <div v-else-if="!initialLoading" class="text-center py-20 text-gray-500 bg-white rounded-lg shadow">
+        <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+        </svg>
+        <p class="text-xl">Фильмы не найдены</p>
+        <p class="text-gray-400 mt-2">Попробуйте изменить параметры поиска</p>
+      </div>
+
+      <!-- Индикатор загрузки при скролле -->
+      <div v-if="loadingMore" class="flex justify-center py-8">
+        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+      </div>
+
+      <!-- Сообщение о конце списка -->
+      <div v-if="!hasMore && movies.length > 0" class="text-center py-8 text-gray-500">
+        Больше фильмов нет
+      </div>
+    </div>
+
+    <!-- Модалки (без изменений) -->
     <!-- Модалка добавления/редактирования -->
     <div v-if="showAddModal || showEditModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -266,24 +293,27 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { adminApi } from '@/api/admin.client';
 import { apiClient } from '@/api/client';
-import Pagination from '@/components/Pagination.vue';
-import { debounce } from 'lodash-es';
 import { excludeApi } from "@/api/content.client.js";
+import { debounce } from 'lodash-es';
 
 const router = useRouter();
 const route = useRoute();
 
-// Состояние
+// Состояние для бесконечной прокрутки
 const movies = ref([]);
-const loading = ref(true);
-const saving = ref(false);
-const deleting = ref(false);
+const loading = ref(false);
+const loadingMore = ref(false);
+const initialLoading = ref(true);
 const currentPage = ref(1);
 const totalPages = ref(1);
+const hasMore = ref(true);
+const loadedPages = ref(1);
+
+// Поиск и фильтры
 const searchQuery = ref('');
 const filterYear = ref('');
 const filterGenre = ref('');
@@ -319,49 +349,34 @@ const movieForm = ref({
 const initFromQuery = () => {
   const query = route.query;
 
-  // Восстанавливаем страницу
-  if (query.page) {
-    currentPage.value = parseInt(query.page);
-  } else {
-    currentPage.value = 1;
-  }
+  // Сбрасываем список фильмов
+  movies.value = [];
+  currentPage.value = 1;
+  loadedPages.value = 1;
+  hasMore.value = true;
 
-  // Восстанавливаем поиск
   if (query.search) {
     searchQuery.value = query.search;
   } else {
     searchQuery.value = '';
   }
 
-  // Восстанавливаем фильтр по году
   if (query.year) {
     filterYear.value = query.year;
   } else {
     filterYear.value = '';
   }
 
-  // Восстанавливаем фильтр по жанру
   if (query.genre) {
     filterGenre.value = query.genre;
   } else {
     filterGenre.value = '';
   }
-
-  console.log('📌 Movies: инициализация из URL:', {
-    page: currentPage.value,
-    search: searchQuery.value,
-    year: filterYear.value,
-    genre: filterGenre.value
-  });
 };
 
 // ОБНОВЛЕНИЕ QUERY ПАРАМЕТРОВ
 const updateQueryParams = () => {
   const query = {};
-
-  if (currentPage.value > 1) {
-    query.page = currentPage.value;
-  }
 
   if (searchQuery.value) {
     query.search = searchQuery.value;
@@ -375,60 +390,60 @@ const updateQueryParams = () => {
     query.genre = filterGenre.value;
   }
 
-  console.log('🔄 Movies: обновление URL:', query);
-
   router.replace({ query });
 };
 
-const formatLanguages = (languages) => {
-  if (!languages || !languages.length) return 'N/A';
-  return languages.map(l => l.english_name || l.name).join(', ');
-};
-
 // Загрузка фильмов
-const loadMovies = async (page = currentPage.value) => {
-  loading.value = true;
+const loadMovies = async (page = 1, append = false) => {
+  if (!append) {
+    loading.value = true;
+    initialLoading.value = true;
+  } else {
+    loadingMore.value = true;
+  }
+
   try {
     let response;
 
     if (searchQuery.value) {
-      // Поиск
-      console.log('🔍 Поиск фильмов:', searchQuery.value);
       response = await apiClient.searchMovies(searchQuery.value, page);
     } else if (filterYear.value) {
-      // Фильтр по году
-      console.log('📅 Фильтр по году:', filterYear.value);
       response = await apiClient.getMoviesByYear(filterYear.value, page);
     } else if (filterGenre.value) {
-      // Фильтр по жанру
-      console.log('🎭 Фильтр по жанру:', filterGenre.value);
       response = await apiClient.getMoviesByGenre(filterGenre.value, page);
     } else {
-      // Все фильмы
-      console.log('📋 Все фильмы, страница:', page);
       response = await apiClient.getMovies(page);
     }
 
     if (response.success) {
-      movies.value = response.data.data || [];
-      totalPages.value = response.data.pagination?.pages || 1;
-      currentPage.value = page;
+      const newMovies = response.data.data || [];
+      const pagination = response.data.pagination || {};
+
+      if (append) {
+        movies.value = [...movies.value, ...newMovies];
+      } else {
+        movies.value = newMovies;
+      }
+
+      totalPages.value = pagination.pages || 1;
+      hasMore.value = page < totalPages.value;
+      loadedPages.value = page;
     }
   } catch (error) {
     console.error('Error loading movies:', error);
   } finally {
     loading.value = false;
+    initialLoading.value = false;
+    loadingMore.value = false;
   }
 };
 
 // Загрузка данных для фильтров
 const loadFilterData = async () => {
   try {
-    // Генерируем года (последние 20 лет)
     const currentYear = new Date().getFullYear();
     years.value = Array.from({ length: 20 }, (_, i) => currentYear - i);
 
-    // Жанры
     genres.value = [
       { id: 28, name: 'Боевик' },
       { id: 12, name: 'Приключения' },
@@ -455,17 +470,13 @@ const loadFilterData = async () => {
   }
 };
 
-// Обработчики
-const goToMovieDetails = (id) => {
-  router.push(`/movies/${id}`);
-};
-
+// Обработчики фильтров
 const handleSearch = () => {
   currentPage.value = 1;
   filterYear.value = '';
   filterGenre.value = '';
   updateQueryParams();
-  loadMovies(1);
+  loadMovies(1, false);
 };
 
 const debouncedSearch = debounce(() => {
@@ -477,7 +488,7 @@ const applyYearFilter = () => {
   searchQuery.value = '';
   filterGenre.value = '';
   updateQueryParams();
-  loadMovies(1);
+  loadMovies(1, false);
 };
 
 const applyGenreFilter = () => {
@@ -485,7 +496,7 @@ const applyGenreFilter = () => {
   searchQuery.value = '';
   filterYear.value = '';
   updateQueryParams();
-  loadMovies(1);
+  loadMovies(1, false);
 };
 
 const clearFilters = () => {
@@ -494,14 +505,29 @@ const clearFilters = () => {
   filterGenre.value = '';
   currentPage.value = 1;
   updateQueryParams();
-  loadMovies(1);
+  loadMovies(1, false);
 };
 
-const changePage = (page) => {
-  currentPage.value = page;
-  updateQueryParams();
-  loadMovies(page);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+// Бесконечная прокрутка
+const handleScroll = () => {
+  if (loadingMore.value || !hasMore.value) return;
+
+  const scrollY = window.scrollY;
+  const windowHeight = window.innerHeight;
+  const documentHeight = document.documentElement.scrollHeight;
+
+  // Загружаем новые фильмы, когда до низа остается 300px
+  if (scrollY + windowHeight >= documentHeight - 300) {
+    if (currentPage.value < totalPages.value) {
+      currentPage.value++;
+      loadMovies(currentPage.value, true);
+    }
+  }
+};
+
+// Навигация
+const goToMovieDetails = (id) => {
+  router.push(`/movies/${id}`);
 };
 
 // CRUD операции
@@ -572,11 +598,10 @@ const deleteMovie = async () => {
   }
 };
 
-// Метод исключения фильма
+// Исключение фильма
 const excludeMovie = async (movie) => {
-  // Спрашиваем подтверждение
   const confirmed = await new Promise((resolve) => {
-    if (confirm(`Вы уверены, что хотите исключить фильм "${movie.title}" из синхронизации?\n\nЭто действие:\n• Удалит фильм из базы данных\n• Добавит его TMDB ID в blacklist\n• При следующей синхронизации он не загрузится`)) {
+    if (confirm(`Вы уверены, что хотите исключить фильм "${movie.title}" из синхронизации?`)) {
       resolve(true);
     } else {
       resolve(false);
@@ -585,17 +610,13 @@ const excludeMovie = async (movie) => {
 
   if (!confirmed) return;
 
-  // Устанавливаем ID исключаемого фильма для отображения спиннера
   excludingMovieId.value = movie.id;
 
   try {
     const response = await excludeApi.excludeMovie(movie.id);
 
     if (response.success) {
-      // Убираем фильм из текущего списка
       movies.value = movies.value.filter(m => m.id !== movie.id);
-
-      // Можно показать уведомление (если есть система уведомлений)
       alert('✅ Фильм успешно исключён из синхронизации');
     } else {
       throw new Error(response.message || 'Ошибка при исключении');
@@ -604,32 +625,66 @@ const excludeMovie = async (movie) => {
     console.error('Error excluding movie:', error);
     alert(`❌ Ошибка: ${error.message}`);
   } finally {
-    // Сбрасываем ID исключаемого фильма
     excludingMovieId.value = null;
   }
 };
 
 // Следим за изменениями query параметров
 watch(() => route.query, (newQuery) => {
-  console.log('🔍 Movies: изменение query:', newQuery);
-
-  // Проверяем, нужно ли перезагружать данные
   const shouldReload =
-      String(newQuery.page || '1') !== String(currentPage.value) ||
       (newQuery.search || '') !== searchQuery.value ||
       (newQuery.year || '') !== filterYear.value ||
       (newQuery.genre || '') !== filterGenre.value;
 
   if (shouldReload) {
     initFromQuery();
-    loadMovies(currentPage.value);
+    loadMovies(1, false);
   }
 }, { deep: true });
 
-// Инициализация при монтировании
+// Инициализация
 onMounted(async () => {
   await loadFilterData();
   initFromQuery();
-  await loadMovies(currentPage.value);
+  await loadMovies(1, false);
+  window.addEventListener('scroll', handleScroll);
+});
+
+// Очистка
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll);
 });
 </script>
+
+<style scoped>
+/* Для обрезки текста */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Анимация появления карточек */
+.grid > div {
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+</style>

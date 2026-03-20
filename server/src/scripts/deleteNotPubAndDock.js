@@ -8,14 +8,8 @@ async function getMovieIds() {
 
         // Выполняем запрос
         const [rows] = await connection.execute(`
-            SELECT
-                id,
-                title,
-                original_title,
-                published,
-                overview
-            FROM movies
-            WHERE adult = 1 and overview is null;
+            SELECT id, title, original_title, movies.release_date from movies
+            where poster_path is null and budget = 0 and release_date < '2020-01-01'
         `);
 
         // Получаем только id

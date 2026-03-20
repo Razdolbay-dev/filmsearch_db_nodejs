@@ -39,6 +39,21 @@ CREATE TABLE `admins` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `content_exclusions`
+--
+
+DROP TABLE IF EXISTS `content_exclusions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `content_exclusions` (
+  `tmdb_id` int(11) NOT NULL,
+  `media_type` enum('movie','series') NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`tmdb_id`,`media_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `genres`
 --
 
@@ -70,7 +85,7 @@ CREATE TABLE `metadata` (
   PRIMARY KEY (`id`),
   KEY `series_id` (`series_id`),
   CONSTRAINT `metadata_ibfk_1` FOREIGN KEY (`series_id`) REFERENCES `tv_series` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=74756 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=76551 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -246,7 +261,7 @@ CREATE TABLE `sync_jobs` (
   KEY `idx_status` (`status`),
   KEY `idx_type` (`job_type`),
   KEY `idx_created_at` (`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=46 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=51 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -270,7 +285,7 @@ CREATE TABLE `sync_processed_items` (
   KEY `idx_type` (`item_type`),
   KEY `job_id` (`job_id`),
   CONSTRAINT `sync_processed_items_ibfk_1` FOREIGN KEY (`job_id`) REFERENCES `sync_jobs` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=484949 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=591691 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -326,7 +341,7 @@ CREATE TABLE `sync_queue` (
   KEY `idx_status_type` (`status`,`item_type`),
   KEY `idx_tmdb_id` (`tmdb_id`),
   CONSTRAINT `sync_queue_ibfk_1` FOREIGN KEY (`job_id`) REFERENCES `sync_jobs` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=478177 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=584931 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -347,7 +362,7 @@ CREATE TABLE `tmdb_export_collection` (
   KEY `idx_tmdb_id` (`tmdb_id`),
   KEY `idx_name` (`name`(100)),
   KEY `idx_export_date` (`export_date`)
-) ENGINE=InnoDB AUTO_INCREMENT=18105 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Экспорт коллекций TMDB (только базовые поля)';
+) ENGINE=InnoDB AUTO_INCREMENT=18170 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Экспорт коллекций TMDB (только базовые поля)';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -373,7 +388,7 @@ CREATE TABLE `tmdb_export_movies` (
   KEY `idx_export_date` (`export_date`),
   KEY `idx_adult` (`adult`),
   KEY `idx_video` (`video`)
-) ENGINE=InnoDB AUTO_INCREMENT=249219 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Экспорт фильмов TMDB (только базовые поля)';
+) ENGINE=InnoDB AUTO_INCREMENT=326802 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Экспорт фильмов TMDB (только базовые поля)';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -395,7 +410,7 @@ CREATE TABLE `tmdb_export_tv` (
   KEY `idx_tmdb_id` (`tmdb_id`),
   KEY `idx_popularity` (`popularity`),
   KEY `idx_export_date` (`export_date`)
-) ENGINE=InnoDB AUTO_INCREMENT=119000 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Экспорт TV сериалов TMDB (только базовые поля)';
+) ENGINE=InnoDB AUTO_INCREMENT=144941 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Экспорт TV сериалов TMDB (только базовые поля)';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -612,4 +627,4 @@ CREATE TABLE `tv_series_spoken_languages` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-03-11 15:40:41
+-- Dump completed on 2026-03-20 11:55:16
