@@ -71,6 +71,7 @@
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Постер</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Страна</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Год</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Рейтинг</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Популярность</th>
@@ -91,8 +92,11 @@
               </div>
             </td>
             <td class="px-6 py-4">
-              <div class="font-medium">{{ movie.title }}</div>
+              <div class="font-medium"><a @click="goToMovieDetails(movie.id)" class="cursor-pointer hover:text-blue-600">{{ movie.title }}</a></div>
               <div class="text-sm text-gray-500">{{ movie.original_title }}</div>
+            </td>
+            <td class="px-6 py-4">
+              <div class="ext-sm text-gray-500">{{ movie.original_language }}</div>
             </td>
             <td class="px-6 py-4 text-sm">{{ movie.release_date?.split('-')[0] || 'N/A' }}</td>
             <td class="px-6 py-4">
@@ -374,6 +378,11 @@ const updateQueryParams = () => {
   console.log('🔄 Movies: обновление URL:', query);
 
   router.replace({ query });
+};
+
+const formatLanguages = (languages) => {
+  if (!languages || !languages.length) return 'N/A';
+  return languages.map(l => l.english_name || l.name).join(', ');
 };
 
 // Загрузка фильмов

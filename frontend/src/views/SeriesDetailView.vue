@@ -41,6 +41,7 @@
       <!-- Детали -->
       <div class="md:w-2/3">
         <h1 class="text-4xl font-bold mb-2">{{ series.name }}</h1>
+        <p v-if="series.original_name" class="text-gray-600 text-lg mb-4">{{ series.original_name }}</p>
         <p v-if="series.tagline" class="text-gray-600 text-lg mb-4">{{ series.tagline }}</p>
 
         <div class="flex flex-wrap gap-4 mb-6">

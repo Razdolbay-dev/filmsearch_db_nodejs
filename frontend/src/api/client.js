@@ -112,7 +112,7 @@ export const apiClient = {
     },
 
     // Series
-    async getSeries(page = 1, limit = 20) {
+    async getSeries(page = 1, limit = 100) {
         return request(`/series${buildQueryString({ page, limit })}`);
     },
 

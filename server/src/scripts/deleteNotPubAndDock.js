@@ -9,16 +9,13 @@ async function getMovieIds() {
         // Выполняем запрос
         const [rows] = await connection.execute(`
             SELECT
-                m.id,
-                m.title,
-                m.original_title,
-                m.published,
-                m.overview
-            FROM movies m
-                     INNER JOIN movie_genres mg ON m.id = mg.movie_id
-            WHERE
-                mg.genre_id = 99
-              AND m.overview IS NULL;
+                id,
+                title,
+                original_title,
+                published,
+                overview
+            FROM movies
+            WHERE adult = 1 and overview is null;
         `);
 
         // Получаем только id
@@ -109,4 +106,3 @@ async function processAllMoviesSequential(movieIds) {
 const movieIds = await getMovieIds();
 // Использование
 const results = await processAllMoviesSequential(movieIds);
-console.log('Полученные ID:', movieIds);

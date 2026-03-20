@@ -65,6 +65,7 @@
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Постер</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Страна</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Годы</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Сезонов</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
@@ -86,8 +87,13 @@
               </div>
             </td>
             <td class="px-6 py-4">
-              <div class="font-medium">{{ item.name }}</div>
+              <div class="font-medium">
+                <a @click="goToSeriesDetails(item.id)" class="cursor-pointer hover:text-blue-600">{{ item.name }}</a>
+              </div>
               <div class="text-sm text-gray-500">{{ item.original_name }}</div>
+            </td>
+            <td class="px-6 py-4">
+              <div class="text-sm text-gray-500">{{ item.original_language }}</div>
             </td>
             <td class="px-6 py-4 text-sm">
               {{ item.first_air_date?.split('-')[0] || 'N/A' }} -
