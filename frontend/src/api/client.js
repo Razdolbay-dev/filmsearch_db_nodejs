@@ -144,92 +144,6 @@ export const apiClient = {
         return request(`/series/seasons/${seasonId}/episodes`);
     },
 
-    // ========== Torznab Methods ==========
-
-    /**
-     * Поиск торрентов через Torznab
-     * @param {Object} params - Параметры поиска
-     * @param {string} params.query - Прямой поисковый запрос
-     * @param {string} params.title - Название фильма/сериала
-     * @param {string} params.original_title - Оригинальное название
-     * @param {number} params.year - Год выпуска
-     * @param {string} params.release_date - Дата релиза
-     * @returns {Promise<Object>} - Результаты поиска
-     */
-    async searchTorrents({ query, title, original_title, year, release_date }) {
-        return request('/torznab/search', {
-            method: 'POST',
-            body: JSON.stringify({
-                query,
-                title,
-                original_title,
-                year,
-                release_date
-            })
-        });
-    },
-
-    /**
-     * Получение информации о торренте
-     * @param {string} id - ID торрента
-     * @param {string} link - Ссылка на торрент
-     * @returns {Promise<Object>} - Информация о торренте
-     */
-    async getTorrentInfo(id, link) {
-        return request(`/torznab/info/${id}${buildQueryString({ link })}`);
-    },
-
-    /**
-     * Проверка здоровья Torznab сервера
-     * @returns {Promise<Object>} - Статус сервера
-     */
-    async checkTorznabHealth() {
-        return request('/torznab/health');
-    },
-
-    /**
-     * Получение статистики поиска Torznab
-     * @returns {Promise<Object>} - Статистика
-     */
-    async getTorznabStats() {
-        return request('/torznab/stats');
-    },
-
-    /**
-     * Удобный метод для поиска торрентов по фильму
-     * @param {Object} movie - Объект фильма
-     * @returns {Promise<Object>} - Результаты поиска
-     */
-    async searchTorrentsForMovie(movie) {
-        return this.searchTorrents({
-            title: movie.title,
-            original_title: movie.original_title,
-            year: movie.release_date ? new Date(movie.release_date).getFullYear() : null,
-            release_date: movie.release_date
-        });
-    },
-
-    /**
-     * Удобный метод для поиска торрентов по сериалу
-     * @param {Object} series - Объект сериала
-     * @param {number} season - Номер сезона (опционально)
-     * @returns {Promise<Object>} - Результаты поиска
-     */
-    async searchTorrentsForSeries(series, season = null) {
-        let query = series.name;
-        if (series.original_name && series.original_name !== series.name) {
-            query += ` ${series.original_name}`;
-        }
-        if (series.first_air_date) {
-            query += ` ${new Date(series.first_air_date).getFullYear()}`;
-        }
-        if (season) {
-            query += ` S${season.toString().padStart(2, '0')}`;
-        }
-
-        return this.searchTorrents({ query });
-    },
-
     // ========== Utility Methods ==========
 
     /**
@@ -255,29 +169,110 @@ export const apiClient = {
         }
     },
 
+    // Добавим в конец файла client.js, после существующих методов
+
+    // ========== TorrServer Integration Methods ==========
+
     /**
-     * Проверка всех сервисов (основной API и Torznab)
+     * Поиск торрентов с приоритетом RuTor
+     * @param {string} query - поисковый запрос
+     * @param {Object} options - опции поиска
+     * @returns {Promise<Object>} - результаты поиска
      */
-    async checkAllServices() {
-        const results = {
-            mainApi: false,
-            torznab: false,
-            timestamp: new Date().toISOString()
-        };
+    async searchTorrents(query, options = {}) {
+        const { limit = 50, minSeeders = 0, priority = 'rutor', fallback = true } = options;
+        return request(`/torrserver/search${buildQueryString({
+            q: query,
+            limit,
+            minSeeders,
+            priority,
+            fallback
+        })}`);
+    },
 
-        try {
-            results.mainApi = await this.checkConnection();
-        } catch (error) {
-            console.error('Main API check failed:', error);
+    // Получить структурированный торрент по хешу
+    async getTorrentByHash(hash) {
+        return request(`/torrserver/torrents/${hash}`);
+    },
+
+    /**
+     * Поиск только в RuTor
+     * @param {string} query - поисковый запрос
+     * @returns {Promise<Object>} - результаты поиска
+     */
+    async searchRuTor(query) {
+        if (!query) {
+            throw new Error('Query parameter is required');
         }
 
-        try {
-            const torznabHealth = await this.checkTorznabHealth();
-            results.torznab = torznabHealth.success && torznabHealth.status === 'healthy';
-        } catch (error) {
-            console.error('Torznab health check failed:', error);
+        return request(`/torrserver/search/rutor${buildQueryString({ q: query })}`);
+    },
+
+    /**
+     * Поиск только в Torznab
+     * @param {string} query - поисковый запрос
+     * @returns {Promise<Object>} - результаты поиска
+     */
+    async searchTorznab(query) {
+        if (!query) {
+            throw new Error('Query parameter is required');
         }
 
-        return results;
-    }
+        return request(`/torrserver/search/torznab${buildQueryString({ q: query })}`);
+    },
+
+    /**
+     * Добавить торрент в TorrServer
+     * @param {string} link - magnet или torznab ссылка
+     * @param {Object} options - опции добавления
+     * @returns {Promise<Object>} - результат добавления
+     */
+    async addTorrentToTorrServer(link, options = {}) {
+        const { title, category, saveToDb = true } = options;
+        return request('/torrserver/torrents/add', {
+            method: 'POST',
+            body: JSON.stringify({
+                link,
+                title,
+                category,
+                saveToDb
+            })
+        });
+    },
+
+    /**
+     * Получить список торрентов в TorrServer
+     */
+    async getTorrServerTorrents() {
+        return request('/torrserver/torrents');
+    },
+
+    /**
+     * Удалить торрент из TorrServer
+     * @param {string} hash - хеш торрента
+     */
+    async removeTorrentFromTorrServer(hash) {
+        return request(`/torrserver/torrents/${hash}`, {
+            method: 'DELETE'
+        });
+    },
+
+    // Добавляем новые методы для трендовых данных
+    async getTrendingMovies(limit = 20, language = 'ru-RU') {
+        return request(`/movies/trending${buildQueryString({ limit, language })}`);
+    },
+
+    async getTrendingSeries(limit = 20, language = 'ru-RU') {
+        return request(`/series/trending${buildQueryString({ limit, language })}`);
+    },
+
+    // Если нужен доступ к сырым данным из TMDB (облегченная версия)
+    async getTrendingMoviesFromTMDB(limit = 20, language = 'ru-RU') {
+        return request(`/movies/trending/tmdb${buildQueryString({ limit, language })}`);
+    },
+
+    async getTrendingSeriesFromTMDB(limit = 20, language = 'ru-RU') {
+        return request(`/series/trending/tmdb${buildQueryString({ limit, language })}`);
+    },
+
 };

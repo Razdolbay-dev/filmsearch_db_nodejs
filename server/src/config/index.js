@@ -37,6 +37,7 @@ const config = {
         userAgent: 'TMDB-Downloader/1.0',
         movieAPIUrl: 'https://api.themoviedb.org/3/movie',
         tvAPIUrl: 'https://api.themoviedb.org/3/tv',
+        trendingAPIUrl: 'https://api.themoviedb.org/3/trending/',
     },
 
     // Прокси настройки

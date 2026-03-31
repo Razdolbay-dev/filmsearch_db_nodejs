@@ -59,6 +59,23 @@
           :key="item.id"
           :series="item"
           @view-details="goToSeriesDetails"
+          @search-torrent="openTorrentSearch"
+      />
+      <!-- Модальное окно поиска торрентов -->
+      <TorrentSearchModal
+          :visible="torrentSearchVisible"
+          :search-query="torrentSearchQuery"
+          :media-type="torrentMediaType"
+          :title="torrentTitle"
+          :year="torrentYear"
+          @close="torrentSearchVisible = false"
+          @torrent-added="handleTorrentAdded"
+      />
+      <!-- После добавления торрента показываем детали -->
+      <TorrentDetailsModal
+          :visible="detailsModalVisible"
+          :torrent-hash="selectedTorrentHash"
+          @close="detailsModalVisible = false"
       />
     </div>
 
@@ -82,6 +99,8 @@ import { useRouter, useRoute } from 'vue-router';
 import { apiClient } from '@/api/client';
 import SeriesCard from '../components/SeriesCard.vue';
 import Pagination from '../components/Pagination.vue';
+import TorrentSearchModal from '@/components/TorrentSearchModal.vue';
+import TorrentDetailsModal from '@/components/TorrentDetailsModal.vue'
 
 const props = defineProps({
   searchQuery: {
@@ -103,6 +122,33 @@ const localSearchQuery = ref('');
 const showPagination = computed(() => {
   return activeFilter.value !== 'popular' && activeFilter.value !== 'production';
 });
+
+const torrentSearchVisible = ref(false);
+const torrentSearchQuery = ref('');
+const torrentMediaType = ref('series');
+const torrentTitle = ref('');
+const torrentYear = ref(null);
+
+const detailsModalVisible = ref(false);
+const selectedTorrentHash = ref('');
+
+
+const openTorrentSearch = (data) => {
+  torrentSearchQuery.value = data.title;
+  torrentMediaType.value = data.type;
+  torrentTitle.value = data.title;
+  torrentYear.value = data.year !== 'N/A' ? data.year : null;
+  torrentSearchVisible.value = true;
+};
+
+const handleTorrentAdded = (result) => {
+  console.log('Torrent added:', result);
+  // После добавления торрента открываем детали
+  if (result?.result?.hash) {
+    selectedTorrentHash.value = result.result.hash;
+    detailsModalVisible.value = true;
+  }
+};
 
 // Инициализация из URL параметров
 const initFromQuery = () => {

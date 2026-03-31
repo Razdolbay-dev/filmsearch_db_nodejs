@@ -293,6 +293,11 @@ async function getItemsToSync(connection, type, filters) {
     const titleField = type === 'movies' ? 'title' : 'name';
     const popularityField = 'popularity';
     const nameField = type === 'movies' ? 'original_title' : 'original_name';
+    const mediaType = type === 'movies' ? 'movie' : 'series';
+
+    // Константы для пакетной обработки
+    const BATCH_SIZE = 10000; // Размер пакета для запросов
+    const MAX_PLACEHOLDERS = 60000; // Безопасный лимит плейсхолдеров
 
     try {
         // 1. Получаем ID из экспорта с популярностью > порога
@@ -316,8 +321,28 @@ async function getItemsToSync(connection, type, filters) {
             return [];
         }
 
-        // 2. Получаем ID для обновления с учетом даты
-        const updateThreshold = filters.daysThreshold || 7; // По умолчанию обновляем раз в 7 дней
+        // 2. Получаем ID исключенного контента
+        const [excludedItems] = await connection.execute(
+            `SELECT tmdb_id FROM content_exclusions 
+             WHERE media_type = ?`,
+            [mediaType]
+        );
+
+        const excludedIds = new Set(excludedItems.map(item => item.tmdb_id));
+        console.log(`🚫 Исключенных ID: ${excludedIds.size}`);
+
+        // 3. Фильтруем экспортные элементы, исключая запрещенные
+        const filteredExportItems = exportItems.filter(
+            item => !excludedIds.has(item.tmdb_id)
+        );
+        console.log(`📊 После фильтрации исключений: ${filteredExportItems.length} элементов`);
+
+        if (filteredExportItems.length === 0) {
+            return [];
+        }
+
+        // 4. Получаем ID для обновления с учетом даты
+        const updateThreshold = filters.daysThreshold || 7;
 
         const [itemsToUpdate] = await connection.execute(`
             SELECT id, updated_at
@@ -335,33 +360,63 @@ async function getItemsToSync(connection, type, filters) {
         const updateIds = new Set(itemsToUpdate.map(item => item.id));
         console.log(`📊 Требуют обновления (не обновлялись ${updateThreshold}+ дней): ${updateIds.size} ID`);
 
-        // 3. Разделяем элементы
+        // 5. Получаем существующие ID из основной таблицы ПАКЕТАМИ
+        const allTmdbIds = filteredExportItems.map(item => item.tmdb_id);
+        const existingIds = new Set();
+
+        // Разбиваем ID на пакеты
+        const idBatches = [];
+        for (let i = 0; i < allTmdbIds.length; i += BATCH_SIZE) {
+            idBatches.push(allTmdbIds.slice(i, i + BATCH_SIZE));
+        }
+
+        console.log(`📦 Разбиваем на ${idBatches.length} пакетов по ~${BATCH_SIZE} ID`);
+
+        // Обрабатываем каждый пакет
+        for (let i = 0; i < idBatches.length; i++) {
+            const batch = idBatches[i];
+            const placeholders = batch.map(() => '?').join(',');
+
+            const [existingBatch] = await connection.execute(
+                `SELECT id FROM ${mainTable} WHERE id IN (${placeholders})`,
+                batch
+            );
+
+            existingBatch.forEach(item => existingIds.add(item.id));
+
+            if ((i + 1) % 10 === 0) {
+                console.log(`   Обработано ${i + 1}/${idBatches.length} пакетов`);
+            }
+        }
+
+        console.log(`✅ Найдено существующих ID: ${existingIds.size}`);
+
+        // 6. Разделяем элементы
         const newItems = [];
         const updateItems = [];
 
-        for (const item of exportItems) {
+        for (const item of filteredExportItems) {
             if (updateIds.has(item.tmdb_id)) {
                 updateItems.push(item);
-            } else {
-                const [exists] = await connection.execute(
-                    `SELECT id FROM ${mainTable} WHERE id = ?`,
-                    [item.tmdb_id]
-                );
-
-                if (exists.length === 0) {
-                    newItems.push(item);
-                }
+            } else if (!existingIds.has(item.tmdb_id)) {
+                newItems.push(item);
             }
         }
 
         console.log(`🆕 Новых: ${newItems.length}, 🔄 На обновление: ${updateItems.length}`);
 
-        // const itemsToSync = [...newItems, ...updateItems].sort((a, b) => b.popularity - a.popularity);
-        // const result = filters.limit ? itemsToSync.slice(0, filters.limit) : itemsToSync;
+        // 7. Формируем результат
         const result = [...newItems, ...updateItems].sort((a, b) => b.popularity - a.popularity);
-        console.log(`✅ ИТОГО: ${result.length} элементов`);
 
-        return result;
+        // Опциональное ограничение количества
+        const finalResult = filters.limit ? result.slice(0, filters.limit) : result;
+        console.log(`✅ Result: ${result.length} элементов`);
+        console.log(`✅ ИТОГО к синхронизации: ${finalResult.length} элементов`);
+        if (excludedIds.size > 0) {
+            console.log(`🚫 Пропущено из-за исключений: ${exportItems.length - filteredExportItems.length}`);
+        }
+
+        return finalResult;
 
     } catch (error) {
         console.error(`❌ Ошибка:`, error);

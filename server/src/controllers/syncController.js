@@ -13,7 +13,8 @@ class SyncController {
 
         try {
             const {
-                limit = 1000,           // Максимум фильмов для импорта
+                // Максимум фильмов для импорта
+                //limit = 1000,
                 popularity = 1.0,       // Минимальная популярность
                 adult = false          // Исключить взрослые
             } = req.body;
@@ -27,7 +28,8 @@ class SyncController {
             VALUES (?, 'movies', 'pending', 0, ?)
         `, [
                 `Синхронизация фильмов ${new Date().toLocaleString('ru-RU')}`,
-                JSON.stringify({ limit, popularity, adult, startedBy: req.ip })
+                // JSON.stringify({ limit, popularity, adult, startedBy: req.ip })
+                JSON.stringify({ popularity, adult, startedBy: req.ip })
             ]);
 
             const jobId = result.insertId;
@@ -42,7 +44,8 @@ class SyncController {
 
             // 3. Запускаем синхронизацию асинхронно
             setImmediate(() => {
-                startSyncJob(jobId, 'movies', { limit, popularity, adult })
+                //startSyncJob(jobId, 'movies', { limit, popularity, adult })
+                startSyncJob(jobId, 'movies', { popularity, adult })
                     .catch(error => {
                         console.error(`❌ Ошибка в задаче ${jobId}:`, error);
                     });
@@ -68,7 +71,8 @@ class SyncController {
 
         try {
             const {
-                limit = 500,            // Сериалов обычно меньше
+                // Сериалов обычно меньше
+                // limit = 500,
                 popularity = 1.0,
                 includeEpisodes = true // Импортировать эпизоды
             } = req.body;
@@ -81,7 +85,8 @@ class SyncController {
             VALUES (?, 'series', 'pending', 0, ?)
         `, [
                 `Синхронизация сериалов ${new Date().toLocaleString('ru-RU')}`,
-                JSON.stringify({ limit, popularity, includeEpisodes, startedBy: req.ip })
+                // JSON.stringify({ limit, popularity, includeEpisodes, startedBy: req.ip })
+                JSON.stringify({ popularity, includeEpisodes, startedBy: req.ip })
             ]);
 
             const jobId = result.insertId;
@@ -94,7 +99,8 @@ class SyncController {
             });
 
             setImmediate(() => {
-                startSyncJob(jobId, 'series', { limit, popularity, includeEpisodes })
+                //startSyncJob(jobId, 'series', { limit, popularity, includeEpisodes })
+                startSyncJob(jobId, 'series', { popularity, includeEpisodes })
                     .catch(error => {
                         console.error(`❌ Ошибка в задаче ${jobId}:`, error);
                     });

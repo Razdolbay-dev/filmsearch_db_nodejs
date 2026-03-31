@@ -5,27 +5,14 @@ async function getMovieIds() {
     const connection = await pool.getConnection();
 
     try {
-        // Поиск по дате
-        // SELECT id, title, original_title, movies.release_date from movies
-        // where poster_path is null and budget = 0 and release_date < '2020-01-01'
-
-        // Выполняем запрос
         const [rows] = await connection.execute(`
-            SELECT
-                id,
-                title,
-                original_title,
-                published,
-                overview
-            FROM movies
-            WHERE adult = 1 and overview is null;
+            select * from movies where published = 0 and overview is null 
+            and release_date < '2024-01-01' and title not REGEXP '[а-яА-ЯёЁ]'
         `);
 
-        // Получаем только id
         const ids = rows.map(row => row.id);
 
-        console.log('Все ID:', ids);
-        console.log('Количество фильмов:', ids.length);
+        console.log('Всего фильмов:', ids.length);
 
         return ids;
 
@@ -34,12 +21,13 @@ async function getMovieIds() {
         throw error;
     } finally {
         if (connection) {
-            connection.release(); // Возвращаем соединение в pool
+            connection.release();
         }
     }
 }
 
-async function processAllMoviesSequential(movieIds) {
+// Функция для обработки с ограничением параллелизма
+async function processWithConcurrencyLimit(movieIds, concurrencyLimit = 100) {
     if (!movieIds || movieIds.length === 0) {
         console.log('Нет фильмов для обработки');
         return {
@@ -49,7 +37,7 @@ async function processAllMoviesSequential(movieIds) {
         };
     }
 
-    console.log(`Начинаем обработку ${movieIds.length} фильмов...`);
+    console.log(`Начинаем обработку ${movieIds.length} фильмов с параллельностью ${concurrencyLimit}...`);
 
     const results = {
         success: [],
@@ -57,42 +45,65 @@ async function processAllMoviesSequential(movieIds) {
         skipped: []
     };
 
-    for (let i = 0; i < movieIds.length; i++) {
-        const id = movieIds[i];
+    let processed = 0;
+    let activePromises = 0;
+    let currentIndex = 0;
 
-        try {
-            console.log(`[${i + 1}/${movieIds.length}] Обработка фильма ID: ${id}`);
-
-            const result = await excludeContent(id, 'movie');
-
-            if (result.success) {
-                results.success.push({ id, message: result.message });
-                console.log(`✅ Успешно: ${result.message}`);
-            } else {
-                // Проверяем, не потому ли ошибка, что фильм уже в исключениях
-                if (result.message.includes('уже в списке исключений')) {
-                    results.skipped.push({ id, message: result.message });
-                    console.log(`⏭️ Пропущен: ${result.message}`);
-                } else {
-                    results.failed.push({ id, message: result.message });
-                    console.log(`❌ Ошибка: ${result.message}`);
+    return new Promise((resolve) => {
+        const processNext = async () => {
+            if (currentIndex >= movieIds.length) {
+                if (activePromises === 0) {
+                    printResults(movieIds.length, results);
+                    resolve(results);
                 }
+                return;
             }
 
-            // Небольшая задержка между запросами, чтобы не перегружать БД
-            if (i < movieIds.length - 1) {
+            const index = currentIndex++;
+            const id = movieIds[index];
+            activePromises++;
+
+            try {
+                console.log(`[${index + 1}/${movieIds.length}] Обработка фильма ID: ${id}`);
+
+                const result = await excludeContent(id, 'movie');
+
+                if (result.success) {
+                    results.success.push({ id, message: result.message });
+                    console.log(`✅ Успешно: ${result.message}`);
+                } else {
+                    if (result.message.includes('уже в списке исключений')) {
+                        results.skipped.push({ id, message: result.message });
+                        console.log(`⏭️ Пропущен: ${result.message}`);
+                    } else {
+                        results.failed.push({ id, message: result.message });
+                        console.log(`❌ Ошибка: ${result.message}`);
+                    }
+                }
+            } catch (error) {
+                results.failed.push({ id, message: error.message });
+                console.log(`❌ Критическая ошибка: ${error.message}`);
+            } finally {
+                activePromises--;
+                processed++;
+
+                // Добавляем задержку между запросами
                 await new Promise(resolve => setTimeout(resolve, 100));
+
+                processNext();
             }
+        };
 
-        } catch (error) {
-            results.failed.push({ id, message: error.message });
-            console.log(`❌ Критическая ошибка: ${error.message}`);
+        // Запускаем начальные задачи
+        for (let i = 0; i < Math.min(concurrencyLimit, movieIds.length); i++) {
+            processNext();
         }
-    }
+    });
+}
 
-    // Выводим статистику
+function printResults(total, results) {
     console.log('\n=== РЕЗУЛЬТАТЫ ОБРАБОТКИ ===');
-    console.log(`Всего обработано: ${movieIds.length}`);
+    console.log(`Всего обработано: ${total}`);
     console.log(`✅ Успешно: ${results.success.length}`);
     console.log(`⏭️ Пропущено (уже в исключениях): ${results.skipped.length}`);
     console.log(`❌ Ошибок: ${results.failed.length}`);
@@ -101,11 +112,8 @@ async function processAllMoviesSequential(movieIds) {
         console.log('\n❌ Список ошибок:');
         results.failed.forEach(f => console.log(`  ID ${f.id}: ${f.message}`));
     }
-
-    return results;
 }
 
 // Вызываем функцию
 const movieIds = await getMovieIds();
-// Использование
-const results = await processAllMoviesSequential(movieIds);
+const results = await processWithConcurrencyLimit(movieIds, 100); // Можно изменить количество параллельных запросов

@@ -4,42 +4,24 @@ import torznabController from '../controllers/torznabController.js';
 
 const router = express.Router();
 
-/**
- * @route   POST /api/torznab/search
- * @desc    Поиск торрентов через Torznab
- * @access  Public
- * @body    { query, title, original_title, year, release_date }
- */
-router.post('/search', (req, res, next) => {
-    // Добавляем время начала запроса для health check
-    req.startTime = Date.now();
-    next();
-}, torznabController.search);
-
-/**
- * @route   GET /api/torznab/info/:id
- * @desc    Получение информации о торренте
- * @access  Public
- * @params  id - ID торрента
- * @query   link - ссылка на торрент
- */
+router.post('/search', torznabController.search);
 router.get('/info/:id', torznabController.getTorrentInfo);
-
-/**
- * @route   GET /api/torznab/health
- * @desc    Проверка доступности Torznab сервера
- * @access  Public
- */
-router.get('/health', (req, res, next) => {
-    req.startTime = Date.now();
-    next();
-}, torznabController.healthCheck);
-
-/**
- * @route   GET /api/torznab/stats
- * @desc    Получение статистики поиска
- * @access  Public
- */
+router.get('/health', torznabController.healthCheck);
 router.get('/stats', torznabController.getStats);
+router.get('/check-link', torznabController.checkLink);
+router.get('/torrent/:id', torznabController.getTorrentById);
+router.post('/cache/clear', torznabController.clearCache);
+
+// Новые роуты для стриминга
+router.post('/add-and-stream', torznabController.addAndStream);
+router.get('/stream/:torrentId', torznabController.getStream);
+router.get('/status/:torrentId', torznabController.getTorrentStatus);
+router.get('/active-torrents', torznabController.getActiveTorrents);
+
+router.get('/playlist', torznabController.getPlaylist);
+router.delete('/torrent/:hash', torznabController.removeTorrent);
+router.get('/stream-file/:hash/:fileId', torznabController.getStreamForFile);
+router.get('/playlist/:hash', torznabController.getM3UPlaylist);
+router.get('/playlist-info/:hash', torznabController.getPlaylistInfo);
 
 export default router;

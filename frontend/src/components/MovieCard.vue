@@ -24,25 +24,37 @@
       <p class="text-gray-600 text-sm mb-2">{{ formattedYear }}</p>
       <p class="text-gray-700 text-sm line-clamp-3">{{ movie.overview || 'Нет описания' }}</p>
 
-      <button
-          @click="$emit('view-details', movie.id)"
-          class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 mt-2"
-      >
-        Подробнее
-      </button>
+      <!-- Кнопки действий -->
+      <div class="flex gap-2 mt-2">
+        <button
+            @click="$emit('view-details', movie.id)"
+            class="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          Подробнее
+        </button>
 
-      <!-- Torznab Search Component -->
-      <TorznabSearch
-          :movie="movie"
-          @download-track="handleDownloadTrack"
-      />
+        <!-- Новая кнопка поиска торрентов -->
+        <button
+            @click="$emit('search-torrent', {
+              title: movie.title,
+              year: formattedYear,
+              type: 'movie'
+            })"
+            class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+            title="Найти торрент"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </button>
+      </div>
     </div>
+
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue';
-import TorznabSearch from './TorznabSearch.vue';
 
 const props = defineProps({
   movie: {
@@ -51,7 +63,7 @@ const props = defineProps({
   }
 });
 
-defineEmits(['view-details']);
+const emit = defineEmits(['view-details', 'search-torrent']);
 
 const formattedVoteAverage = computed(() => {
   if (!props.movie.vote_average && props.movie.vote_average !== 0) return props.movie.vote_average;
@@ -70,18 +82,6 @@ const formattedYear = computed(() => {
 
 const handleImageError = (e) => {
   e.target.src = 'https://via.placeholder.com/500x750?text=No+Image';
-};
-
-const handleDownloadTrack = ({ movie, torrent, timestamp }) => {
-  console.log('Download tracked:', {
-    movieTitle: movie.title,
-    torrentTitle: torrent.Title,
-    quality: torrent.quality,
-    timestamp: timestamp
-  });
-
-  // Здесь можно добавить отправку аналитики
-  // или сохранение в историю загрузок
 };
 </script>
 

@@ -72,6 +72,23 @@
           :key="movie.id"
           :movie="movie"
           @view-details="goToMovieDetails"
+          @search-torrent="openTorrentSearch"
+      />
+      <!-- Модальное окно поиска торрентов -->
+      <TorrentSearchModal
+          :visible="torrentSearchVisible"
+          :search-query="torrentSearchQuery"
+          :media-type="torrentMediaType"
+          :title="torrentTitle"
+          :year="torrentYear"
+          @close="torrentSearchVisible = false"
+          @torrent-added="handleTorrentAdded"
+      />
+      <!-- После добавления торрента показываем детали -->
+      <TorrentDetailsModal
+          :visible="detailsModalVisible"
+          :torrent-hash="selectedTorrentHash"
+          @close="detailsModalVisible = false"
       />
     </div>
 
@@ -95,6 +112,8 @@ import { useRouter, useRoute } from 'vue-router';
 import { apiClient } from '@/api/client';
 import MovieCard from '@/components/MovieCard.vue';
 import Pagination from '@/components/Pagination.vue';
+import TorrentSearchModal from '@/components/TorrentSearchModal.vue';
+import TorrentDetailsModal from '@/components/TorrentDetailsModal.vue'
 
 const props = defineProps({
   searchQuery: {
@@ -117,6 +136,34 @@ const filterGenre = ref('');
 // Данные для фильтров
 const years = ref([]);
 const genres = ref([]);
+
+
+const torrentSearchVisible = ref(false);
+const torrentSearchQuery = ref('');
+const torrentMediaType = ref('movie');
+const torrentTitle = ref('');
+const torrentYear = ref(null);
+
+const detailsModalVisible = ref(false);
+const selectedTorrentHash = ref('');
+
+const openTorrentSearch = (data) => {
+  torrentSearchQuery.value = data.title;
+  torrentMediaType.value = data.type;
+  torrentTitle.value = data.title;
+  torrentYear.value = data.year !== 'N/A' ? data.year : null;
+  torrentSearchVisible.value = true;
+};
+
+const handleTorrentAdded = (result) => {
+  console.log('Torrent added:', result);
+  // Можно показать уведомление или обновить список
+  // После добавления торрента открываем детали
+  if (result?.result?.hash) {
+    selectedTorrentHash.value = result.result.hash;
+    detailsModalVisible.value = true;
+  }
+};
 
 // Вычисляемое свойство для отображения пагинации
 const showPagination = computed(() => {
