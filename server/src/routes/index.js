@@ -15,6 +15,7 @@ import seriesRoutes from "./seriesRoutes.js";
 
 import infoRoutes from "./infoRoutes.js";
 import syncRoutes from "./syncRoutes.js";
+import searchRoutes from "./searchRoutes.js";
 
 const router = express.Router();
 
@@ -44,6 +45,7 @@ router.use('/exports', exportsRoutes);
 router.use('/imports', importRoutes);
 router.use('/info', infoRoutes);
 router.use('/sync', syncRoutes);
+router.use('/search', searchRoutes);
 router.use('/tmdb_movies', tmdbMovieRoutes);
 router.use('/tmdb_series', tmdbSeriesRoutes);
 router.use('/torrserver', torrservRoutes); // <-- Добавляем маршрут для TorrServer

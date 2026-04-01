@@ -144,7 +144,7 @@ const loadTrendingData = async () => {
   // Загружаем трендовые фильмы
   try {
     trendingMoviesLoading.value = true;
-    const moviesResponse = await apiClient.getTrendingMovies(20, 'ru-RU');
+    const moviesResponse = await apiClient.getTrendingMovies(15, 'ru-RU');
 
     if (moviesResponse.success) {
       trendingMovies.value = moviesResponse.data || [];
@@ -167,7 +167,7 @@ const loadTrendingData = async () => {
   // Загружаем трендовые сериалы
   try {
     trendingSeriesLoading.value = true;
-    const seriesResponse = await apiClient.getTrendingSeries(20, 'ru-RU');
+    const seriesResponse = await apiClient.getTrendingSeries(15, 'ru-RU');
 
     if (seriesResponse.success) {
       trendingSeries.value = seriesResponse.data || [];
@@ -195,8 +195,8 @@ const loadTrendingDataParallel = async () => {
     trendingSeriesLoading.value = true;
 
     const [moviesResponse, seriesResponse] = await Promise.all([
-      apiClient.getTrendingMovies(20, 'ru-RU'),
-      apiClient.getTrendingSeries(20, 'ru-RU')
+      apiClient.getTrendingMovies(15, 'ru-RU'),
+      apiClient.getTrendingSeries(15, 'ru-RU')
     ]);
 
     if (moviesResponse.success) {

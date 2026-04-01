@@ -267,11 +267,11 @@ export const apiClient = {
     },
 
     // Если нужен доступ к сырым данным из TMDB (облегченная версия)
-    async getTrendingMoviesFromTMDB(limit = 20, language = 'ru-RU') {
+    async getTrendingMoviesFromTMDB(limit = 15, language = 'ru-RU') {
         return request(`/movies/trending/tmdb${buildQueryString({ limit, language })}`);
     },
 
-    async getTrendingSeriesFromTMDB(limit = 20, language = 'ru-RU') {
+    async getTrendingSeriesFromTMDB(limit = 15, language = 'ru-RU') {
         return request(`/series/trending/tmdb${buildQueryString({ limit, language })}`);
     },
 
