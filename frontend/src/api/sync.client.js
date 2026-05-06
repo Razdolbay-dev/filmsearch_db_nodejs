@@ -1,4 +1,4 @@
-const API_BASE_URL = `${window.location.protocol}//${window.location.hostname}:5000/api`;
+const API_BASE_URL = `${window.location.protocol}//${window.location.hostname}/api`;
 
 class SyncApiClient {
     constructor() {

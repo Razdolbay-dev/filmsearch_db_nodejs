@@ -14,7 +14,7 @@ function getApiBaseUrl() {
     const { protocol, hostname, port } = window.location;
 
     // Формируем URL API на том же хосте
-    return `${protocol}//${hostname}:5000/api`;
+    return `${protocol}//${hostname}/api`;
 }
 
 // Базовые методы для запросов

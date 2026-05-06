@@ -34,7 +34,7 @@
         </div>
 
         <!-- Поиск на десктопе (скрываем на мобильных) -->
-        <div class="hidden md:block relative">
+        <!--<div class="hidden md:block relative">
           <input
               type="text"
               v-model="searchQuery"
@@ -42,7 +42,7 @@
               placeholder="Поиск..."
               class="bg-gray-800 text-white px-4 py-1 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-400 w-64"
           />
-        </div>
+        </div>-->
 
         <!-- Кнопка бургер-меню (только на мобильных) -->
         <button
@@ -80,7 +80,7 @@
           class="md:hidden py-4 border-t border-gray-800"
       >
         <!-- Поиск на мобильных -->
-        <div class="relative mb-4">
+        <!--<div class="relative mb-4">
           <input
               type="text"
               v-model="searchQuery"
@@ -88,7 +88,7 @@
               placeholder="Поиск фильмов и сериалов..."
               class="w-full bg-gray-800 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
-        </div>
+        </div>-->
 
         <!-- Навигационные ссылки для мобильных -->
         <div class="flex flex-col space-y-2">

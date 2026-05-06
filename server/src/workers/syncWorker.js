@@ -279,7 +279,7 @@ export async function startSyncJob(jobId, type = 'movies', filters = {}) {
 
     } finally {
         if (connection) {
-            connection.release();
+            // connection.release();
             console.log(`🔌 [Job ${jobId}] Соединение с БД освобождено`);
         }
     }
